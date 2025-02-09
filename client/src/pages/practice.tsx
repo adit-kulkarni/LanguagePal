@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { AlertCircle, Volume2, Loader2 } from "lucide-react";
+import { AlertCircle, Volume2, Loader2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -13,11 +13,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ConversationStarters } from "@/components/conversation-starters";
-import { useState } from "react";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -35,7 +33,7 @@ interface Message {
     type: "punctuation" | "grammar" | "vocabulary";
     ignored?: boolean;
   }>;
-  translation?: string; // Added translation property
+  translation?: string;
 }
 
 interface TranslationCache {
@@ -55,8 +53,8 @@ export default function Practice() {
   const [translations, setTranslations] = React.useState<TranslationCache>({});
   const [currentSession, setCurrentSession] = React.useState<{ id: number; context: string } | null>(null);
   const { toast } = useToast();
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [speakingIntensity, setSpeakingIntensity] = useState(0);
+  const [isSpeaking, setIsSpeaking] = React.useState(false);
+  const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
   const queryClient = useQueryClient();
 
   const speak = React.useCallback((text: string) => {
@@ -85,62 +83,6 @@ export default function Practice() {
 
     window.speechSynthesis.speak(utterance);
   }, []);
-
-  const showExamples = async (word: string) => {
-    console.log('Example sentence feature temporarily disabled');
-  };
-
-  const handleWordClick = async (word: string) => {
-    if (translations[word] && !translations[word].loading) {
-      toast({
-        title: `Translation for "${word}"`,
-        description: (
-          <div className="font-medium text-lg">{translations[word].translation}</div>
-        ),
-        duration: 5000,
-      });
-      return;
-    }
-
-    if (translations[word]?.loading) return;
-
-    setTranslations(prev => ({
-      ...prev,
-      [word]: { translation: '', loading: true }
-    }));
-
-    try {
-      const response = await apiRequest("POST", "/api/translate", { word });
-      const data = await response.json();
-
-      setTranslations(prev => ({
-        ...prev,
-        [word]: {
-          translation: data.translation,
-          loading: false
-        }
-      }));
-
-      toast({
-        title: `Translation for "${word}"`,
-        description: (
-          <div className="font-medium text-lg">{data.translation}</div>
-        ),
-        duration: 5000,
-      });
-    } catch (error) {
-      console.error("Translation error:", error);
-      setTranslations(prev => ({
-        ...prev,
-        [word]: { translation: 'Translation failed', loading: false }
-      }));
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to get translation"
-      });
-    }
-  };
 
   React.useEffect(() => {
     async function initializeUser() {
@@ -180,7 +122,8 @@ export default function Practice() {
         ...prev,
         {
           type: "teacher",
-          content: data.teacherResponse.message
+          content: data.teacherResponse.message,
+          translation: data.teacherResponse.translation
         }
       ]);
 
@@ -210,7 +153,8 @@ export default function Practice() {
 
       setMessages([{
         type: "teacher",
-        content: data.teacherResponse.message
+        content: data.teacherResponse.message,
+        translation: data.teacherResponse.translation
       }]);
 
       queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
@@ -302,33 +246,8 @@ export default function Practice() {
                 <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
                   <CardContent className="p-4 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div
-                        className="space-x-1 whitespace-pre-wrap break-words"
-                        onClick={(e) => {
-                          const target = e.target as HTMLSpanElement;
-                          if (target.dataset.word) {
-                            handleWordClick(target.dataset.word);
-                          }
-                        }}
-                      >
-                        {message.content && message.content.split(' ').map((word, j) => (
-                          <Tooltip key={j}>
-                            <TooltipTrigger asChild>
-                              <span
-                                data-word={word}
-                                className="hover:text-primary hover:underline cursor-pointer inline-block"
-                              >
-                                {word}
-                                {translations[word]?.loading && (
-                                  <Loader2 className="w-3 h-3 animate-spin absolute -top-3 -right-3" />
-                                )}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              Click to translate
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
+                      <div className="flex-1 space-x-1 whitespace-pre-wrap break-words">
+                        {message.content}
                       </div>
                       {message.type === "teacher" && (
                         <div className="flex items-center gap-2">
