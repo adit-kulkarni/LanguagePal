@@ -102,45 +102,54 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/word-examples", async (req, res) => {
     try {
       const word = z.string().parse(req.body.word);
+      console.log(`Generating examples for word: ${word}`);
 
       const response = await getTeacherResponse(
-        `Create a JSON array with EXACTLY 2 simple example sentences in Spanish that demonstrate the usage of "${word}". 
-         Each sentence must:
-         - Use the word "${word}" exactly as provided
-         - Be 4-8 words long
+        `Generate EXACTLY 2 simple example sentences in Spanish using the word "${word}".
+         The sentences MUST:
+         - Include the word "${word}" exactly as written
+         - Be between 4-8 words long
          - End with a period
          - Be grammatically correct Spanish
+         - Be at beginner level difficulty
 
-         Return ONLY a JSON array in this exact format: ["Example 1.", "Example 2."]
-         Do not include any other text or explanation.`,
+         Return ONLY a JSON array with exactly 2 sentences: ["Sentence 1.", "Sentence 2."]
+         No other text or explanation - just the JSON array.`,
         { grammarTenses: [], vocabularySets: [] }
       );
+
+      console.log('OpenAI Response:', response.message);
 
       try {
         // First try to parse the entire response as JSON
         const examples = JSON.parse(response.message);
         if (Array.isArray(examples) && examples.length === 2) {
+          console.log('Successfully parsed examples:', examples);
           return res.json({ examples });
         }
-      } catch {
+      } catch (parseError) {
+        console.log('Failed to parse complete response:', parseError);
+
         // If that fails, try to extract just the array part
         try {
           const jsonMatch = response.message.match(/\[(.*?)\]/s);
           if (jsonMatch) {
             const examples = JSON.parse(jsonMatch[0]);
             if (Array.isArray(examples) && examples.length > 0) {
+              console.log('Successfully parsed extracted examples:', examples);
               return res.json({ examples });
             }
           }
-        } catch (err) {
-          console.error('Failed to parse examples:', err);
+        } catch (extractError) {
+          console.error('Failed to parse extracted examples:', extractError);
         }
       }
 
-      // If all parsing attempts fail, return empty array
+      // If all parsing attempts fail, return empty array with message
+      console.log('No valid examples could be generated');
       res.json({ 
         examples: [], 
-        message: `No example sentences available for "${word}". Please try another word.` 
+        message: `Could not generate example sentences for "${word}". Please try another word.` 
       });
     } catch (error) {
       console.error('Examples error:', error);
