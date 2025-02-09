@@ -1,11 +1,22 @@
 import { z } from "zod";
 
-const wiktionaryResponseSchema = z.object({
-  title: z.string(),
-  extract: z.string(),
-  pageid: z.number(),
-  description: z.string().optional(),
-});
+const dictionaryResponseSchema = z.array(z.object({
+  word: z.string(),
+  meanings: z.array(z.object({
+    partOfSpeech: z.string(),
+    definitions: z.array(z.object({
+      definition: z.string(),
+      example: z.string().optional(),
+    })),
+    synonyms: z.array(z.string()).optional(),
+    translations: z.array(z.object({
+      text: z.string()
+    })).optional(),
+  })),
+  phonetics: z.array(z.object({
+    text: z.string().optional()
+  })).optional(),
+})).min(1);
 
 export async function translateWord(word: string): Promise<{ 
   translation: string;
@@ -13,61 +24,33 @@ export async function translateWord(word: string): Promise<{
   phonetic?: string;
 }> {
   try {
-    // Use English Wiktionary API with proper language specification
-    const encodedWord = encodeURIComponent(word.toLowerCase().trim());
+    // Use the Free Dictionary API with Spanish language code
     const response = await fetch(
-      `https://en.wiktionary.org/api/rest_v1/page/summary/${encodedWord}#Spanish`
+      `https://api.dictionaryapi.dev/api/v2/entries/es/${encodeURIComponent(word.toLowerCase().trim())}`
     );
 
     if (!response.ok) {
-      // Try alternate endpoint if first one fails
-      const altResponse = await fetch(
-        `https://es.wiktionary.org/api/rest_v1/page/summary/${encodedWord}`
-      );
-
-      if (!altResponse.ok) {
-        throw new Error('Word not found in dictionary');
-      }
-
-      const altData = await altResponse.json();
-      const altParsed = wiktionaryResponseSchema.parse(altData);
-
-      // Extract translation from Spanish Wiktionary
-      const translationMatch = altParsed.extract.match(/(?:translations?|traducciones?)[:\s]+([^.;]+)/i);
-      return {
-        translation: translationMatch ? translationMatch[1].trim() : altParsed.extract.split('.')[0],
-      };
+      throw new Error('Word not found in dictionary');
     }
 
     const data = await response.json();
-    const parsed = wiktionaryResponseSchema.parse(data);
+    const parsed = dictionaryResponseSchema.parse(data);
+    const entry = parsed[0];
 
-    // Look for Spanish translation patterns in the extract
-    const spanishSection = parsed.extract.toLowerCase().indexOf('spanish');
-    if (spanishSection !== -1) {
-      const relevantText = parsed.extract.slice(spanishSection);
-      // Look for translation patterns
-      const translationMatch = relevantText.match(/(?:meaning|translation)[:\s]+([^.;]+)/i);
+    // Get the primary translation
+    const translation = entry.meanings[0]?.definitions[0]?.definition || word;
 
-      return {
-        translation: translationMatch ? translationMatch[1].trim() : relevantText.split('.')[0],
-      };
-    }
+    // Get phonetic if available
+    const phonetic = entry.phonetics?.[0]?.text;
 
-    // Fallback to description if available
-    if (parsed.description) {
-      return {
-        translation: parsed.description.split('.')[0],
-      };
-    }
-
+    // Get examples if available (we'll keep examples separate via OpenAI)
     return {
-      translation: parsed.extract.split('.')[0],
+      translation,
+      phonetic,
     };
 
   } catch (error) {
     console.error('Dictionary API error:', error);
-    // Throw a more specific error for better error handling
     throw new Error('Failed to translate word: ' + (error instanceof Error ? error.message : 'Unknown error'));
   }
 }
