@@ -121,7 +121,7 @@ export default function Practice() {
                         }
                       }}
                     >
-                      {message.content.split(' ').map((word, j) => (
+                      {message.content && message.content.split(' ').map((word, j) => (
                         <Tooltip key={j}>
                           <TooltipTrigger asChild>
                             <span 
