@@ -8,7 +8,7 @@ export const users = pgTable("users", {
     grammarTenses: string[];
     vocabularySets: string[];
   }>().default({
-    grammarTenses: ["simple present"],
+    grammarTenses: ["presente (present indicative)"],
     vocabularySets: ["100 most common nouns"]
   }),
   progress: jsonb("progress").$type<{
