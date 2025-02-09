@@ -22,6 +22,8 @@ interface Message {
     correction: string;
     explanation: string;
     explanation_es: string;
+    type: "punctuation" | "grammar" | "vocabulary";
+    ignored?: boolean;
   }>;
 }
 
@@ -255,6 +257,27 @@ export default function Practice() {
                       </div>
                       {message.corrections.map((correction, j) => (
                         <div key={j} className="text-sm text-muted-foreground space-y-1">
+                          <div className="flex items-center gap-2">
+                            {correction.type === "punctuation" && (
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                correction.ignored 
+                                  ? "bg-gray-100 text-gray-500"
+                                  : "bg-yellow-100 text-yellow-700"
+                              }`}>
+                                {correction.ignored ? "Ignored Punctuation" : "Punctuation"}
+                              </span>
+                            )}
+                            {correction.type === "grammar" && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                                Grammar
+                              </span>
+                            )}
+                            {correction.type === "vocabulary" && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                Vocabulary
+                              </span>
+                            )}
+                          </div>
                           <p><strong>{correction.original}</strong> → {correction.correction}</p>
                           <p className="text-blue-600">{correction.explanation_es}</p>
                           <p className="text-gray-600">{correction.explanation}</p>
