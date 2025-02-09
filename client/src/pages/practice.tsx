@@ -43,8 +43,8 @@ export default function Practice() {
     content: "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!"
   }]);
   const [translations, setTranslations] = React.useState<TranslationCache>({});
+  const [currentSession, setCurrentSession] = React.useState<{ id: number; context: string } | null>(null);
   const { toast } = useToast();
-  const [currentContext, setCurrentContext] = React.useState<string>("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingIntensity, setSpeakingIntensity] = useState(0);
 
@@ -159,22 +159,34 @@ export default function Practice() {
   }, []);
 
   const handleSubmit = async (text: string) => {
+    if (!currentSession) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please select a conversation context first"
+      });
+      return;
+    }
+
     setMessages(prev => [...prev, { type: "user", content: text }]);
 
     try {
-      const response = await apiRequest("POST", "/api/conversations", {
-        userId: 1,
-        transcript: text
-      });
+      const response = await apiRequest(
+        "POST",
+        `/api/sessions/${currentSession.id}/messages`,
+        { content: text }
+      );
 
       const data = await response.json();
-      const teacherMessage = {
-        type: "teacher" as const,
-        content: data.teacherResponse.message,
-        corrections: data.teacherResponse.corrections?.mistakes
-      };
 
-      setMessages(prev => [...prev, teacherMessage]);
+      setMessages(prev => [
+        ...prev,
+        {
+          type: "teacher",
+          content: data.teacherResponse.message
+        }
+      ]);
+
       speak(data.teacherResponse.message);
     } catch (error) {
       toast({
@@ -182,19 +194,25 @@ export default function Practice() {
         title: "Error",
         description: "Failed to get teacher's response"
       });
-      console.error("Conversation error:", error);
     }
   };
 
   const handleContextSelect = async (context: string) => {
-    setCurrentContext(context);
     try {
       const response = await apiRequest("POST", "/api/conversations", {
-        userId: 1,
+        userId: 1, // We should get this from a user context
         transcript: `START_CONTEXT: ${context}`
       });
 
       const data = await response.json();
+
+      // Store the new session info
+      setCurrentSession({
+        id: data.session.id,
+        context: data.session.context
+      });
+
+      // Set the initial message
       setMessages([{
         type: "teacher",
         content: data.teacherResponse.message
@@ -228,9 +246,9 @@ export default function Practice() {
       <div className="w-1/2 flex flex-col p-4">
         <h1 className="text-2xl font-bold mb-4">
           Practice Spanish
-          {currentContext && (
+          {currentSession && (
             <span className="text-sm font-normal text-muted-foreground ml-2">
-              Context: {currentContext}
+              Context: {currentSession.context}
             </span>
           )}
         </h1>

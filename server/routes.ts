@@ -32,7 +32,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // New session management endpoints
+  // Session management endpoints
   app.post("/api/sessions", async (req, res) => {
     try {
       const sessionData = insertSessionSchema.parse({
@@ -66,7 +66,61 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Updated message handling
+  // Conversations endpoint
+  app.post("/api/conversations", async (req, res) => {
+    try {
+      const userId = parseInt(req.body.userId);
+      const transcript = req.body.transcript;
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!user.settings) {
+        return res.status(400).json({ message: "User settings not configured" });
+      }
+
+      // Handle conversation start with context
+      if (transcript.startsWith("START_CONTEXT:")) {
+        const context = transcript.replace("START_CONTEXT:", "").trim();
+
+        // Create a new session
+        const session = await storage.createSession({
+          userId,
+          title: `Spanish Practice: ${context}`,
+          context,
+          lastMessageAt: new Date()
+        });
+
+        // Get teacher's initial response
+        const teacherResponse = await getTeacherResponse(
+          transcript,
+          user.settings,
+          [] // No previous messages for a new conversation
+        );
+
+        // Save teacher's message
+        const message = await storage.createMessage({
+          sessionId: session.id,
+          type: "teacher",
+          content: teacherResponse.message
+        });
+
+        return res.json({ 
+          session,
+          teacherResponse
+        });
+      }
+
+      res.status(400).json({ message: "Invalid conversation request" });
+    } catch (error) {
+      console.error('Conversation error:', error);
+      res.status(500).json({ message: "Failed to start conversation" });
+    }
+  });
+
+  // Message handling
   app.post("/api/sessions/:sessionId/messages", async (req, res) => {
     try {
       const sessionId = parseInt(req.params.sessionId);
@@ -87,10 +141,7 @@ export function registerRoutes(app: Express): Server {
       const teacherResponse = await getTeacherResponse(
         req.body.content,
         user.settings,
-        recentMessages.map(msg => ({
-          transcript: msg.content,
-          context: session.context
-        }))
+        recentMessages
       );
 
       // Save user's message
@@ -108,7 +159,7 @@ export function registerRoutes(app: Express): Server {
         content: teacherResponse.message
       });
 
-      res.json({ userMessage, teacherMessage });
+      res.json({ userMessage, teacherMessage, teacherResponse });
     } catch (error) {
       console.error('Message error:', error);
       res.status(500).json({ message: "Failed to process message" });
@@ -129,17 +180,6 @@ export function registerRoutes(app: Express): Server {
       res.json(user);
     } catch (error) {
       res.status(400).json({ message: "Invalid progress data" });
-    }
-  });
-
-
-  app.get("/api/users/:id/conversations", async (req, res) => {
-    try {
-      const userId = parseInt(req.params.id);
-      const conversations = await storage.getUserConversations(userId);
-      res.json(conversations);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch conversations" });
     }
   });
 
