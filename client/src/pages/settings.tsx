@@ -21,6 +21,11 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const settingsSchema = z.object({
   grammarTenses: z.array(z.string()).min(1, "Select at least one grammar tense"),
@@ -69,7 +74,7 @@ export default function Settings() {
               <FormItem>
                 <FormLabel>Grammar Tenses</FormLabel>
                 <FormDescription>
-                  Select the grammar tenses you want to practice. Hover over the question mark to see examples.
+                  Select the grammar tenses you want to practice. Click the question mark to see examples.
                 </FormDescription>
                 <div className="grid gap-4 pt-2">
                   {grammarTenses.map((tense) => (
@@ -96,20 +101,27 @@ export default function Settings() {
                             <FormLabel className="font-normal">
                               {tense.name}
                             </FormLabel>
-                            <HoverCard openDelay={200}>
-                              <HoverCardTrigger asChild>
-                                <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-primary cursor-help transition-colors" />
-                              </HoverCardTrigger>
-                              <HoverCardContent className="w-80">
-                                <div className="space-y-2">
-                                  <p className="text-sm font-semibold">{tense.description}</p>
-                                  <div className="text-sm">
-                                    <p className="font-medium text-primary">{tense.example}</p>
-                                    <p className="text-muted-foreground">{tense.translation}</p>
-                                  </div>
-                                </div>
-                              </HoverCardContent>
-                            </HoverCard>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HoverCard openDelay={200}>
+                                  <HoverCardTrigger asChild>
+                                    <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-primary cursor-help transition-colors" />
+                                  </HoverCardTrigger>
+                                  <HoverCardContent className="w-80">
+                                    <div className="space-y-2">
+                                      <p className="text-sm font-semibold">{tense.description}</p>
+                                      <div className="text-sm bg-muted/50 p-2 rounded-md">
+                                        <p className="font-medium text-primary">{tense.example}</p>
+                                        <p className="text-muted-foreground">{tense.translation}</p>
+                                      </div>
+                                    </div>
+                                  </HoverCardContent>
+                                </HoverCard>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Click for example
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                         </FormItem>
                       )}
