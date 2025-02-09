@@ -19,6 +19,9 @@ export async function getTeacherResponse(
   transcript: string,
   settings: { grammarTenses: string[]; vocabularySets: string[] }
 ): Promise<TeacherResponse> {
+  const isContextStart = transcript.startsWith("START_CONTEXT:");
+  const context = isContextStart ? transcript.replace("START_CONTEXT:", "").trim() : "";
+
   const systemPrompt = transcript.startsWith("Generate EXACTLY 2") 
     ? {
         role: "system" as const,
@@ -26,8 +29,13 @@ export async function getTeacherResponse(
       }
     : {
         role: "system" as const,
-        content: `You are a friendly Colombian Spanish teacher. Your task is to:
+        content: `You are a friendly Colombian Spanish teacher. ${
+          isContextStart 
+            ? `The student wants to practice Spanish in the context of: ${context}. Start a conversation appropriate for this context.`
+            : "Your task is to:"
+        }
 
+${isContextStart ? "" : `
 1. Analyze the student's Spanish input for grammar or vocabulary mistakes
 2. Provide corrections in a structured format
 3. Respond naturally to continue the conversation
@@ -46,11 +54,13 @@ For tense corrections:
 - If student is practicing past tense but uses present tense, mark it as a mistake
 - If student is practicing future tense but uses present tense, mark it as a mistake
 - Provide clear explanations in both Spanish and English
-- Show the correct verb form in the practiced tense
+- Show the correct verb form in the practiced tense`}
 
 Always respond with a JSON object containing:
 {
-  "message": "Your friendly response continuing the conversation",
+  "message": "${isContextStart 
+    ? "Your initial message starting the conversation in the specified context" 
+    : "Your friendly response continuing the conversation"}",
   "corrections": {
     "mistakes": [
       {
@@ -64,7 +74,7 @@ Always respond with a JSON object containing:
 }
 
 Even if there are no mistakes, always include the corrections object with an empty mistakes array.
-If the input is in English or another language, respond naturally but indicate they should try in Spanish.`
+${!isContextStart ? "If the input is in English or another language, respond naturally but indicate they should try in Spanish." : ""}`
       };
 
   const response = await openai.chat.completions.create({

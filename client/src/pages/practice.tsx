@@ -12,6 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ConversationStarters } from "@/components/conversation-starters";
 
 interface Message {
   type: "user" | "teacher";
@@ -36,10 +37,11 @@ interface TranslationCache {
 export default function Practice() {
   const [messages, setMessages] = React.useState<Message[]>([{
     type: "teacher",
-    content: "¡Hola! I'm Profesora Ana. Let's practice Spanish together! How are you today?"
+    content: "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!"
   }]);
   const [translations, setTranslations] = React.useState<TranslationCache>({});
   const { toast } = useToast();
+  const [currentContext, setCurrentContext] = React.useState<string>("");
 
   // Speech synthesis setup
   const speak = React.useCallback((text: string) => {
@@ -156,16 +158,46 @@ export default function Practice() {
     }
   };
 
+  const handleContextSelect = async (context: string) => {
+    setCurrentContext(context);
+    try {
+      const response = await apiRequest("POST", "/api/conversations", {
+        userId: 1,
+        transcript: `START_CONTEXT: ${context}`
+      });
+
+      const data = await response.json();
+      setMessages([{
+        type: "teacher",
+        content: data.teacherResponse.message
+      }]);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to start conversation in this context"
+      });
+    }
+  };
+
   return (
     <div className="flex h-screen">
-      {/* Teacher Section */}
-      <div className="w-1/2 flex items-center justify-center bg-accent/10">
+      {/* Teacher Section with Context Starters */}
+      <div className="w-1/2 flex flex-col items-center justify-center bg-accent/10 gap-8">
         <TeacherAvatar className="scale-150" />
+        <ConversationStarters onSelectContext={handleContextSelect} />
       </div>
 
-      {/* Chat Section */}
+      {/* Chat Section - remains mostly unchanged */}
       <div className="w-1/2 flex flex-col p-4">
-        <h1 className="text-2xl font-bold mb-4">Practice Spanish</h1>
+        <h1 className="text-2xl font-bold mb-4">
+          Practice Spanish
+          {currentContext && (
+            <span className="text-sm font-normal text-muted-foreground ml-2">
+              Context: {currentContext}
+            </span>
+          )}
+        </h1>
 
         <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4">
