@@ -20,6 +20,7 @@ interface Message {
     original: string;
     correction: string;
     explanation: string;
+    explanation_es: string;
   }>;
 }
 
@@ -219,9 +220,10 @@ export default function Practice() {
                         <span className="text-sm font-medium">Corrections:</span>
                       </div>
                       {message.corrections.map((correction, j) => (
-                        <div key={j} className="text-sm text-muted-foreground">
+                        <div key={j} className="text-sm text-muted-foreground space-y-1">
                           <p><strong>{correction.original}</strong> → {correction.correction}</p>
-                          <p>{correction.explanation}</p>
+                          <p className="text-blue-600">{correction.explanation_es}</p>
+                          <p className="text-gray-600">{correction.explanation}</p>
                         </div>
                       ))}
                     </div>

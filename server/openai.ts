@@ -10,6 +10,7 @@ export interface TeacherResponse {
       original: string;
       correction: string;
       explanation: string;
+      explanation_es: string;
     }>;
   };
 }
@@ -44,7 +45,7 @@ Use vocabulary from these sets: ${settings.vocabularySets.join(", ")}.
 For tense corrections:
 - If student is practicing past tense but uses present tense, mark it as a mistake
 - If student is practicing future tense but uses present tense, mark it as a mistake
-- Provide clear explanations about why the tense is incorrect
+- Provide clear explanations in both Spanish and English
 - Show the correct verb form in the practiced tense
 
 Always respond with a JSON object containing:
@@ -55,7 +56,8 @@ Always respond with a JSON object containing:
       {
         "original": "incorrect phrase or word",
         "correction": "correct phrase or word",
-        "explanation": "why this correction is needed"
+        "explanation": "Explanation in English of why this correction is needed and how to use the correct form",
+        "explanation_es": "Explicación en español de por qué se necesita esta corrección y cómo usar la forma correcta"
       }
     ]
   }
