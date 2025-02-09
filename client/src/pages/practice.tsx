@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import * as React from "react";
 import { TeacherAvatar } from "@/components/teacher-avatar";
 import { SpeechInput } from "@/components/speech-input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,17 +40,17 @@ interface TranslationCache {
 }
 
 export default function Practice() {
-  const [messages, setMessages] = useState<Message[]>([{
+  const [messages, setMessages] = React.useState<Message[]>([{
     type: "teacher",
     content: "¡Hola! I'm Profesora Ana. Let's practice Spanish together! How are you today?"
   }]);
-  const [translations, setTranslations] = useState<TranslationCache>({});
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
-  const [loadingExamples, setLoadingExamples] = useState(false);
+  const [translations, setTranslations] = React.useState<TranslationCache>({});
+  const [selectedWord, setSelectedWord] = React.useState<string | null>(null);
+  const [loadingExamples, setLoadingExamples] = React.useState(false);
   const { toast } = useToast();
 
   // Speech synthesis setup
-  const speak = useCallback((text: string) => {
+  const speak = React.useCallback((text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-CO'; // Colombian Spanish
     utterance.rate = 0.9; // Slightly slower for clarity
@@ -156,7 +156,7 @@ export default function Practice() {
   };
 
   // Ensure user exists when component mounts
-  useEffect(() => {
+  React.useEffect(() => {
     async function initializeUser() {
       try {
         await apiRequest("POST", "/api/users", {});
@@ -260,13 +260,13 @@ export default function Practice() {
                       )}
                     </div>
 
-                    {message.corrections?.mistakes && message.corrections.mistakes.length > 0 && (
+                    {message.corrections && message.corrections.length > 0 && (
                       <div className="mt-2 space-y-2">
                         <div className="flex items-center gap-2 text-yellow-600">
                           <AlertCircle className="h-4 w-4" />
                           <span className="text-sm font-medium">Corrections:</span>
                         </div>
-                        {message.corrections.mistakes.map((correction, j) => (
+                        {message.corrections.map((correction, j) => (
                           <div key={j} className="text-sm text-muted-foreground">
                             <p><strong>{correction.original}</strong> → {correction.correction}</p>
                             <p>{correction.explanation}</p>
