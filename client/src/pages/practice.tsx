@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { AlertCircle, Volume2 } from "lucide-react";
+import { AlertCircle, Volume2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -23,11 +23,19 @@ interface Message {
   }>;
 }
 
+interface TranslationCache {
+  [word: string]: {
+    translation: string;
+    loading?: boolean;
+  };
+}
+
 export default function Practice() {
   const [messages, setMessages] = useState<Message[]>([{
     type: "teacher",
     content: "¡Hola! I'm Profesora Ana. Let's practice Spanish together! How are you today?"
   }]);
+  const [translations, setTranslations] = useState<TranslationCache>({});
   const { toast } = useToast();
 
   // Speech synthesis setup
@@ -40,15 +48,44 @@ export default function Practice() {
 
   // Handle word click for translation
   const handleWordClick = async (word: string) => {
+    // If we already have the translation, show it
+    if (translations[word] && !translations[word].loading) {
+      toast({
+        title: word,
+        description: translations[word].translation,
+      });
+      return;
+    }
+
+    // If it's already loading, do nothing
+    if (translations[word]?.loading) return;
+
+    // Set loading state
+    setTranslations(prev => ({
+      ...prev,
+      [word]: { translation: '', loading: true }
+    }));
+
     try {
       const response = await apiRequest("POST", "/api/translate", { word });
       const data = await response.json();
+
+      // Store the translation
+      setTranslations(prev => ({
+        ...prev,
+        [word]: { translation: data.translation, loading: false }
+      }));
+
       toast({
         title: word,
         description: data.translation,
       });
     } catch (error) {
       console.error("Translation error:", error);
+      setTranslations(prev => ({
+        ...prev,
+        [word]: { translation: 'Translation failed', loading: false }
+      }));
     }
   };
 
@@ -84,7 +121,7 @@ export default function Practice() {
       };
 
       setMessages(prev => [...prev, teacherMessage]);
-      speak(data.teacherResponse.message); // Speak the teacher's response
+      speak(data.teacherResponse.message);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -126,13 +163,20 @@ export default function Practice() {
                           <TooltipTrigger asChild>
                             <span 
                               data-word={word}
-                              className="hover:text-primary hover:underline cursor-pointer"
+                              className="hover:text-primary hover:underline cursor-pointer relative"
                             >
                               {word}
+                              {translations[word]?.loading && (
+                                <Loader2 className="w-3 h-3 animate-spin absolute -top-3 -right-3" />
+                              )}
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            Click to translate
+                            {translations[word]?.loading 
+                              ? "Translating..."
+                              : translations[word]?.translation 
+                                ? translations[word].translation 
+                                : "Click to translate"}
                           </TooltipContent>
                         </Tooltip>
                       ))}
