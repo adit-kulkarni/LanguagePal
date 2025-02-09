@@ -1,4 +1,6 @@
 import { users, conversations, type User, type InsertUser, type Conversation, type InsertConversation } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -9,85 +11,53 @@ export interface IStorage {
   getUserConversations(userId: number): Promise<Conversation[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private conversations: Map<number, Conversation>;
-  private currentUserId: number;
-  private currentConversationId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.conversations = new Map();
-    this.currentUserId = 1;
-    this.currentConversationId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const defaultSettings = {
-      grammarTenses: ["simple present"],
-      vocabularySets: ["100 most common nouns"]
-    };
-    const defaultProgress = {
-      grammar: 0,
-      vocabulary: 0,
-      speaking: 0,
-      cefr: "A1"
-    };
-
-    const newUser: User = {
-      id,
-      settings: user.settings || defaultSettings,
-      progress: user.progress || defaultProgress
-    };
-
-    this.users.set(id, newUser);
+    const [newUser] = await db.insert(users).values(user).returning();
     return newUser;
   }
 
   async updateUserSettings(id: number, settings: User["settings"]): Promise<User> {
-    const user = await this.getUser(id);
-    if (!user) throw new Error("User not found");
+    const [updatedUser] = await db
+      .update(users)
+      .set({ settings })
+      .where(eq(users.id, id))
+      .returning();
 
-    const updatedUser = { ...user, settings };
-    this.users.set(id, updatedUser);
+    if (!updatedUser) throw new Error("User not found");
     return updatedUser;
   }
 
   async updateUserProgress(id: number, progress: User["progress"]): Promise<User> {
-    const user = await this.getUser(id);
-    if (!user) throw new Error("User not found");
+    const [updatedUser] = await db
+      .update(users)
+      .set({ progress })
+      .where(eq(users.id, id))
+      .returning();
 
-    const updatedUser = { ...user, progress };
-    this.users.set(id, updatedUser);
+    if (!updatedUser) throw new Error("User not found");
     return updatedUser;
   }
 
   async createConversation(conversation: InsertConversation): Promise<Conversation> {
-    const id = this.currentConversationId++;
-    const defaultCorrections = {
-      mistakes: []
-    };
-
-    const newConversation: Conversation = {
-      id,
-      userId: conversation.userId,
-      transcript: conversation.transcript,
-      corrections: conversation.corrections || defaultCorrections
-    };
-
-    this.conversations.set(id, newConversation);
+    const [newConversation] = await db
+      .insert(conversations)
+      .values(conversation)
+      .returning();
     return newConversation;
   }
 
   async getUserConversations(userId: number): Promise<Conversation[]> {
-    return Array.from(this.conversations.values())
-      .filter(conv => conv.userId === userId);
+    return db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.userId, userId));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
