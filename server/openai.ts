@@ -22,6 +22,37 @@ interface ConversationHistory {
   content: string;
 }
 
+interface ConversationContext {
+  topics_discussed: string[];
+  student_info: {
+    interests?: string[];
+    occupation?: string;
+    hobbies?: string[];
+  };
+}
+
+function extractConversationContext(history: ConversationHistory[]): ConversationContext {
+  const context: ConversationContext = {
+    topics_discussed: [],
+    student_info: {}
+  };
+
+  // Extract key information from conversation history
+  history.forEach(msg => {
+    if (msg.role === "user") {
+      // Look for hobby/interest related keywords
+      if (msg.content.toLowerCase().includes("like to") || 
+          msg.content.toLowerCase().includes("enjoy") ||
+          msg.content.toLowerCase().includes("hobby")) {
+        context.topics_discussed.push("interests/hobbies");
+      }
+      // Add other topic detection as needed
+    }
+  });
+
+  return context;
+}
+
 export async function getTeacherResponse(
   transcript: string,
   settings: { grammarTenses: string[]; vocabularySets: string[] },
@@ -36,6 +67,9 @@ export async function getTeacherResponse(
     content: conv.transcript
   }));
 
+  // Extract and analyze conversation context
+  const conversationContext = extractConversationContext(conversationHistory);
+
   const systemPrompt = transcript.startsWith("Generate EXACTLY 2")
     ? {
         role: "system" as const,
@@ -49,19 +83,29 @@ ${isContextStart
           ? `\n\nThe student wants to practice Spanish in the context of: ${context}. Start an engaging conversation that feels natural for this context, while STRICTLY using only these tenses: ${settings.grammarTenses.join(", ")}.`
           : `\n\nAs you chat with the student, remember these STRICT RULES:`}
 
-1. TENSE USAGE (HIGHEST PRIORITY):
+1. CONVERSATION MEMORY (HIGHEST PRIORITY):
+   - Review the entire conversation history before responding
+   - NEVER ask questions about topics already discussed
+   - If student mentioned hobbies/interests before, reference them instead of asking again
+   - Build upon previous responses and show you remember details
+   - When asking follow-up questions, explicitly reference previous answers
+
+2. TENSE USAGE (HIGHEST PRIORITY):
    - You are ONLY allowed to use these tenses: ${settings.grammarTenses.join(", ")}
    - NEVER use any other tenses in your responses
    - If you need to express something that would normally use a different tense, you MUST rephrase it using the allowed tenses
    - Double-check every response to ensure you're not using any unauthorized tenses
 
-2. Conversation Flow:
+3. Conversation Flow:
    - Keep the conversation natural while ONLY using allowed tenses
    - Provide corrections when students use non-allowed tenses
    - Stay focused on the current context and previous messages
    - Use vocabulary from these sets: ${settings.vocabularySets.join(", ")}
 
+Previously Discussed Topics: ${conversationContext.topics_discussed.join(", ")}
+
 Remember:
+- NEVER repeat questions or ask about information already provided
 - NEVER use tenses that aren't in the allowed list: ${settings.grammarTenses.join(", ")}
 - Keep conversation history in mind and maintain context
 - Be warm and encouraging while enforcing tense rules
