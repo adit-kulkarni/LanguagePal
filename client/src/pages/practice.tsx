@@ -48,70 +48,10 @@ export default function Practice() {
     window.speechSynthesis.speak(utterance);
   }, []);
 
+  // Keep the function but don't expose it in the UI for now
   const showExamples = async (word: string) => {
-    // If already loading examples, don't do anything
-    if (translations[word]?.loadingExamples) return;
-
-    // Set loading state for examples
-    setTranslations(prev => ({
-      ...prev,
-      [word]: { 
-        ...prev[word],
-        loadingExamples: true 
-      }
-    }));
-
-    try {
-      const response = await apiRequest("POST", "/api/word-examples", { word });
-      const data = await response.json();
-
-      // Update translations with examples
-      setTranslations(prev => ({
-        ...prev,
-        [word]: {
-          ...prev[word],
-          examples: data.examples,
-          loadingExamples: false
-        }
-      }));
-
-      // Show toast with examples or error message
-      if (data.examples && data.examples.length > 0) {
-        toast({
-          title: `Examples for "${word}"`,
-          description: (
-            <div className="space-y-2">
-              <ul className="list-disc pl-4 text-sm space-y-2">
-                {data.examples.map((example: string, i: number) => (
-                  <li key={i} className="leading-relaxed">{example}</li>
-                ))}
-              </ul>
-            </div>
-          ),
-          duration: 6000,
-        });
-      } else {
-        toast({
-          title: "No examples found",
-          description: data.message || `Could not find example sentences for "${word}"`,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Examples error:", error);
-      setTranslations(prev => ({
-        ...prev,
-        [word]: {
-          ...prev[word],
-          loadingExamples: false
-        }
-      }));
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to get example sentences. Please try again."
-      });
-    }
+    // Implementation remains but is currently unused
+    console.log('Example sentence feature temporarily disabled');
   };
 
   // Handle word click for translation
@@ -121,24 +61,7 @@ export default function Practice() {
       toast({
         title: `Translation for "${word}"`,
         description: (
-          <div className="space-y-4">
-            <div className="font-medium text-lg">{translations[word].translation}</div>
-            <Button 
-              onClick={() => showExamples(word)}
-              disabled={translations[word]?.loadingExamples}
-              size="sm"
-              className="w-full"
-            >
-              {translations[word]?.loadingExamples ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading Examples...
-                </>
-              ) : (
-                'Show Example Sentences'
-              )}
-            </Button>
-          </div>
+          <div className="font-medium text-lg">{translations[word].translation}</div>
         ),
         duration: 5000,
       });
@@ -171,16 +94,7 @@ export default function Practice() {
       toast({
         title: `Translation for "${word}"`,
         description: (
-          <div className="space-y-4">
-            <div className="font-medium text-lg">{data.translation}</div>
-            <Button 
-              onClick={() => showExamples(word)}
-              size="sm"
-              className="w-full"
-            >
-              Show Example Sentences
-            </Button>
-          </div>
+          <div className="font-medium text-lg">{data.translation}</div>
         ),
         duration: 5000,
       });
