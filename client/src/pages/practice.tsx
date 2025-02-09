@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ConversationStarters } from "@/components/conversation-starters";
+import { useState } from "react";
 
 interface Message {
   type: "user" | "teacher";
@@ -44,12 +45,18 @@ export default function Practice() {
   const [translations, setTranslations] = React.useState<TranslationCache>({});
   const { toast } = useToast();
   const [currentContext, setCurrentContext] = React.useState<string>("");
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   // Speech synthesis setup
   const speak = React.useCallback((text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-CO'; // Colombian Spanish
     utterance.rate = 0.9; // Slightly slower for clarity
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
     window.speechSynthesis.speak(utterance);
   }, []);
 
@@ -187,7 +194,7 @@ export default function Practice() {
       {/* Teacher Section with Context Starters */}
       <div className="w-1/2 flex flex-col items-center bg-accent/10 py-8">
         <div className="mb-8 flex flex-col items-center">
-          <TeacherAvatar className="scale-125 mb-2" />
+          <TeacherAvatar className="scale-125 mb-2" speaking={isSpeaking} />
         </div>
         <div className="w-full px-4">
           <ConversationStarters onSelectContext={handleContextSelect} />
