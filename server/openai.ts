@@ -18,11 +18,13 @@ export async function getTeacherResponse(
   transcript: string,
   settings: { grammarTenses: string[]; vocabularySets: string[] }
 ): Promise<TeacherResponse> {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
+  const systemPrompt = transcript.startsWith("Generate EXACTLY 2") 
+    ? {
+        role: "system" as const,
+        content: "You are a Spanish language expert. Return ONLY a JSON array containing exactly 2 Spanish example sentences. No other text."
+      }
+    : {
+        role: "system" as const,
         content: `You are a friendly Colombian Spanish teacher. Your task is to:
 
 1. Analyze the student's Spanish input for any grammar or vocabulary mistakes
@@ -48,7 +50,12 @@ Always respond with a JSON object containing:
 
 Even if there are no mistakes, always include the corrections object with an empty mistakes array.
 If the input is in English or another language, respond naturally but indicate they should try in Spanish.`
-      },
+      };
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      systemPrompt,
       {
         role: "user",
         content: transcript
@@ -62,6 +69,21 @@ If the input is in English or another language, respond naturally but indicate t
     throw new Error("No response received from OpenAI");
   }
 
+  // For example sentences request, wrap the array in a TeacherResponse format
+  if (transcript.startsWith("Generate EXACTLY 2")) {
+    try {
+      const examples = JSON.parse(content);
+      return {
+        message: JSON.stringify(examples),
+        corrections: { mistakes: [] }
+      };
+    } catch (error) {
+      console.error("Failed to parse OpenAI response:", error);
+      throw error;
+    }
+  }
+
+  // For normal conversation, parse the complete response
   const parsed = JSON.parse(content) as TeacherResponse;
 
   // Ensure corrections object exists with mistakes array
