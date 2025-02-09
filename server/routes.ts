@@ -104,7 +104,8 @@ export function registerRoutes(app: Express): Server {
         const message = await storage.createMessage({
           sessionId: session.id,
           type: "teacher",
-          content: teacherResponse.message
+          content: teacherResponse.message,
+          translation: teacherResponse.translation
         });
 
         return res.json({
@@ -156,7 +157,8 @@ export function registerRoutes(app: Express): Server {
       const teacherMessage = await storage.createMessage({
         sessionId,
         type: "teacher",
-        content: teacherResponse.message
+        content: teacherResponse.message,
+        translation: teacherResponse.translation
       });
 
       res.json({ userMessage, teacherMessage, teacherResponse });
