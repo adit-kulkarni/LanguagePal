@@ -56,7 +56,7 @@ export function ConversationStarters({ onSelectContext }: ConversationStartersPr
           className="p-4 cursor-pointer hover:bg-accent transition-colors"
           onClick={() => onSelectContext(item.context)}
         >
-          <h3 className="font-semibold text-sm line-clamp-1">{item.title}</h3>
+          <h3 className="font-semibold text-sm line-clamp-1 mb-1">{item.title}</h3>
           <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
         </Card>
       ))}

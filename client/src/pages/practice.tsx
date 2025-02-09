@@ -89,9 +89,9 @@ export default function Practice() {
       // Store the translation
       setTranslations(prev => ({
         ...prev,
-        [word]: { 
+        [word]: {
           translation: data.translation,
-          loading: false 
+          loading: false
         }
       }));
 
@@ -185,11 +185,13 @@ export default function Practice() {
   return (
     <div className="flex h-screen">
       {/* Teacher Section with Context Starters */}
-      <div className="w-1/2 flex flex-col items-center justify-center bg-accent/10 p-8">
-        <div className="mb-12">
-          <TeacherAvatar className="scale-150" />
+      <div className="w-1/2 flex flex-col items-center bg-accent/10 py-8">
+        <div className="mb-8 flex flex-col items-center">
+          <TeacherAvatar className="scale-125 mb-2" />
         </div>
-        <ConversationStarters onSelectContext={handleContextSelect} />
+        <div className="w-full px-4">
+          <ConversationStarters onSelectContext={handleContextSelect} />
+        </div>
       </div>
 
       {/* Chat Section - remains mostly unchanged */}
@@ -260,7 +262,7 @@ export default function Practice() {
                           <div className="flex items-center gap-2">
                             {correction.type === "punctuation" && (
                               <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                correction.ignored 
+                                correction.ignored
                                   ? "bg-gray-100 text-gray-500"
                                   : "bg-yellow-100 text-yellow-700"
                               }`}>
