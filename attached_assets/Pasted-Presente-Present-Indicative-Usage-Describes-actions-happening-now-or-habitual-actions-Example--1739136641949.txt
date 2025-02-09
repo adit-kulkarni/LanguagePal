@@ -1,0 +1,82 @@
+Presente (Present Indicative)
+
+Usage: Describes actions happening now or habitual actions.
+Example: “Yo hablo español.”
+English: “I speak Spanish.”
+Pretérito Indefinido (Simple Past or Preterite)
+
+Usage: Narrates completed actions in the past.
+Example: “Ella comió en el restaurante.”
+English: “She ate at the restaurant.”
+Pretérito Imperfecto (Imperfect Past)
+
+Usage: Describes ongoing, habitual, or background actions in the past.
+Example: “Nosotros jugábamos fútbol los sábados.”
+English: “We used to play soccer on Saturdays.”
+Futuro Simple (Simple Future)
+
+Usage: Indicates actions that will happen.
+Example: “Mañana viajaré a Madrid.”
+English: “Tomorrow I will travel to Madrid.”
+Condicional Simple (Simple Conditional)
+
+Usage: Expresses hypothetical or conditional actions.
+Example: “Yo iría si tuviera tiempo.”
+English: “I would go if I had time.”
+Pretérito Perfecto Compuesto (Present Perfect)
+
+Usage: Talks about actions completed in the past that have relevance to the present.
+Example: “Ellos han terminado el trabajo.”
+English: “They have finished the work.”
+Pretérito Pluscuamperfecto (Pluperfect)
+
+Usage: Describes a past action that occurred before another past action.
+Example: “Yo había leído el libro antes de ver la película.”
+English: “I had read the book before watching the movie.”
+Futuro Perfecto (Future Perfect)
+
+Usage: Indicates that an action will have been completed by a certain point in the future.
+Example: “Para entonces, tú habrás terminado el proyecto.”
+English: “By then, you will have finished the project.”
+Condicional Perfecto (Conditional Perfect)
+
+Usage: Expresses what would have happened under different conditions.
+Example: “Nosotros habríamos ido si nos hubieras invitado.”
+English: “We would have gone if you had invited us.”
+Pretérito Anterior (Past Anterior)
+
+Usage: A literary or formal tense used to indicate an action immediately past relative to another past action (rare in everyday speech).
+Example: “Apenas hubo salido, comenzó a llover.”
+English: “Hardly had he left, when it began to rain.”
+(Also acceptable: “No sooner had he left than it started to rain.”)
+Subjunctive Mood
+Presente de Subjuntivo (Present Subjunctive)
+
+Usage: Used in subordinate clauses to express doubt, desire, emotion, or uncertainty in the present/future.
+Example: “Espero que tú estudies para el examen.”
+English: “I hope that you study for the exam.”
+Pretérito Imperfecto de Subjuntivo (Imperfect Subjunctive)
+
+Usage: Refers to past actions in a subjunctive context; note that there are two sets of endings (–ra and –se forms).
+Example: “Si yo supiera la respuesta, te lo diría.”
+English: “If I knew the answer, I would tell you.”
+Pretérito Perfecto de Subjuntivo (Present Perfect Subjunctive)
+
+Usage: Describes past actions with present relevance in contexts that require the subjunctive mood.
+Example: “Dudo que ellos hayan llegado ya.”
+English: “I doubt that they have already arrived.”
+Pretérito Pluscuamperfecto de Subjuntivo (Pluperfect Subjunctive)
+
+Usage: Indicates an action that had occurred before another past action within a subjunctive framework.
+Example: “Ojalá hubieras venido a la fiesta.”
+English: “I wish you had come to the party.”
+Futuro de Subjuntivo (Future Subjunctive)
+
+Usage: Now mostly archaic and found in legal or very formal texts, it was once used to refer to future actions in a subjunctive context.
+Example (literary): “Donde fuere que estés, te buscaré.”
+English: “Wherever you may be, I will look for you.”
+Futuro Perfecto de Subjuntivo (Future Perfect Subjunctive)
+
+Usage: Also archaic and rarely used; it indicates that a future action will have been completed, within a subjunctive clause.
+Example (literary): “Cuando hubiere terminado el trabajo, me iré.”
+English: “Once I have finished the work, I will leave.”
