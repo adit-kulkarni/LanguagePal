@@ -19,8 +19,9 @@ function Router() {
       <Navigation />
       <main>
         <Switch>
+          <Route path="/" component={AuthPage} />
           <Route path="/auth" component={AuthPage} />
-          <ProtectedRoute path="/" component={Home} />
+          <ProtectedRoute path="/home" component={Home} />
           <ProtectedRoute path="/practice" component={Practice} />
           <ProtectedRoute path="/settings" component={Settings} />
           <ProtectedRoute path="/progress" component={Progress} />

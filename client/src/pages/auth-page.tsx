@@ -35,10 +35,9 @@ export default function AuthPage() {
     },
   });
 
-  // Use useEffect for navigation to avoid React hook violations
   React.useEffect(() => {
     if (user) {
-      setLocation("/");
+      setLocation("/home");
     }
   }, [user, setLocation]);
 
