@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TeacherAvatar } from "@/components/teacher-avatar";
 import { SpeechInput } from "@/components/speech-input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,20 +24,35 @@ export default function Practice() {
   }]);
   const { toast } = useToast();
 
+  // Ensure user exists when component mounts
+  useEffect(() => {
+    async function initializeUser() {
+      try {
+        await apiRequest("POST", "/api/users", {});
+      } catch (error) {
+        // Ignore error if user already exists
+        if (!(error instanceof Error && error.message.includes("400"))) {
+          console.error("Failed to initialize user:", error);
+        }
+      }
+    }
+    initializeUser();
+  }, []);
+
   const handleSubmit = async (text: string) => {
     setMessages(prev => [...prev, { type: "user", content: text }]);
 
     try {
       const response = await apiRequest("POST", "/api/conversations", {
-        userId: 1, // TODO: Get from auth
+        userId: 1, // Using default user ID
         transcript: text
       });
-      
+
       const data = await response.json();
       setMessages(prev => [...prev, {
         type: "teacher",
         content: data.teacherResponse.message,
-        corrections: data.teacherResponse.corrections.mistakes
+        corrections: data.teacherResponse.corrections?.mistakes
       }]);
     } catch (error) {
       toast({
@@ -45,6 +60,7 @@ export default function Practice() {
         title: "Error",
         description: "Failed to get teacher's response"
       });
+      console.error("Conversation error:", error);
     }
   };
 
@@ -61,7 +77,7 @@ export default function Practice() {
             <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
               <CardContent className="p-4 space-y-2">
                 <p>{message.content}</p>
-                {message.corrections?.length > 0 && (
+                {message.corrections && message.corrections.length > 0 && (
                   <div className="mt-2 space-y-2">
                     <div className="flex items-center gap-2 text-yellow-600">
                       <AlertCircle className="h-4 w-4" />
