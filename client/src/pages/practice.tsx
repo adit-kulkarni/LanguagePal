@@ -51,22 +51,17 @@ export default function Practice() {
 
   // Handle word click for translation
   const handleWordClick = async (word: string) => {
-    // If we already have the translation, show it
+    // If we already have the translation and examples, show them
     if (translations[word] && !translations[word].loading) {
       toast({
         title: word,
         description: (
           <div className="space-y-2">
-            <p>{translations[word].translation}</p>
-            {translations[word].phonetic && (
-              <p className="text-sm text-muted-foreground">
-                Pronunciation: {translations[word].phonetic}
-              </p>
-            )}
+            <p className="font-medium">{translations[word].translation}</p>
             {translations[word].examples && translations[word].examples.length > 0 && (
-              <div className="mt-2 border-t pt-2">
-                <p className="text-sm font-medium mb-1">Examples:</p>
-                <ul className="text-sm text-muted-foreground space-y-1">
+              <div className="mt-2 pt-2 border-t border-border">
+                <p className="text-sm font-medium mb-1">Example Sentences:</p>
+                <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
                   {translations[word].examples.map((example, i) => (
                     <li key={i}>{example}</li>
                   ))}
@@ -75,6 +70,7 @@ export default function Practice() {
             )}
           </div>
         ),
+        duration: 5000, // Show for 5 seconds to give time to read examples
       });
       return;
     }
@@ -89,23 +85,27 @@ export default function Practice() {
     }));
 
     try {
-      // Fetch translation
-      const translationResponse = await apiRequest("POST", "/api/translate", { word });
-      const translationData = await translationResponse.json();
+      // Fetch both translation and examples in parallel
+      const [translationResponse, examplesResponse] = await Promise.all([
+        apiRequest("POST", "/api/translate", { word }),
+        apiRequest("POST", "/api/word-examples", { word })
+      ]);
 
-      // Fetch examples
-      const examplesResponse = await apiRequest("POST", "/api/word-examples", { word });
-      const examplesData = await examplesResponse.json();
+      const [translationData, examplesData] = await Promise.all([
+        translationResponse.json(),
+        examplesResponse.json()
+      ]);
 
       // Store the translation and examples
+      const updatedTranslation = { 
+        translation: translationData.translation,
+        examples: examplesData.examples,
+        loading: false 
+      };
+
       setTranslations(prev => ({
         ...prev,
-        [word]: { 
-          translation: translationData.translation,
-          examples: examplesData.examples,
-          phonetic: translationData.phonetic,
-          loading: false 
-        }
+        [word]: updatedTranslation
       }));
 
       // Show toast with translation and examples
@@ -113,16 +113,11 @@ export default function Practice() {
         title: word,
         description: (
           <div className="space-y-2">
-            <p>{translationData.translation}</p>
-            {translationData.phonetic && (
-              <p className="text-sm text-muted-foreground">
-                Pronunciation: {translationData.phonetic}
-              </p>
-            )}
+            <p className="font-medium">{translationData.translation}</p>
             {examplesData.examples && examplesData.examples.length > 0 && (
-              <div className="mt-2 border-t pt-2">
-                <p className="text-sm font-medium mb-1">Examples:</p>
-                <ul className="text-sm text-muted-foreground space-y-1">
+              <div className="mt-2 pt-2 border-t border-border">
+                <p className="text-sm font-medium mb-1">Example Sentences:</p>
+                <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
                   {examplesData.examples.map((example: string, i: number) => (
                     <li key={i}>{example}</li>
                   ))}
@@ -131,6 +126,7 @@ export default function Practice() {
             )}
           </div>
         ),
+        duration: 5000, // Show for 5 seconds to give time to read examples
       });
     } catch (error) {
       console.error("Translation error:", error);
@@ -229,11 +225,7 @@ export default function Practice() {
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            {translations[word]?.loading
-                              ? "Translating..."
-                              : translations[word]?.translation
-                                ? translations[word].translation
-                                : "Click to translate"}
+                            Click to translate
                           </TooltipContent>
                         </Tooltip>
                       ))}
