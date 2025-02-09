@@ -1,9 +1,15 @@
 import { users, messages, conversationSessions, type User, type InsertUser, type Message, type InsertMessage, type ConversationSession, type InsertConversationSession } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
+  // User management
   getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserSettings(id: number, settings: User["settings"]): Promise<User>;
   updateUserProgress(id: number, progress: User["progress"]): Promise<User>;
@@ -18,11 +24,30 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   getSessionMessages(sessionId: number): Promise<Message[]>;
   getRecentMessages(sessionId: number, limit?: number): Promise<Message[]>;
+
+  // Express session store
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({
+      conObject: {
+        connectionString: process.env.DATABASE_URL,
+      },
+      createTableIfMissing: true,
+    });
+  }
+
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
     return user;
   }
 
