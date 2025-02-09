@@ -99,12 +99,39 @@ export default function Practice() {
 
   const handleSubmit = async (text: string) => {
     if (!currentSession) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please select a conversation context first"
-      });
-      return;
+      // Create a new conversation if none exists
+      try {
+        const response = await apiRequest("POST", "/api/conversations", {
+          userId: 1,
+          transcript: text
+        });
+
+        const data = await response.json();
+        setCurrentSession({
+          id: data.session.id,
+          context: data.session.context
+        });
+
+        setMessages(prev => [
+          ...prev,
+          { type: "user", content: text },
+          {
+            type: "teacher",
+            content: data.teacherResponse.message,
+            translation: data.teacherResponse.translation
+          }
+        ]);
+
+        queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
+        return;
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to start conversation"
+        });
+        return;
+      }
     }
 
     setMessages(prev => [...prev, { type: "user", content: text }]);
