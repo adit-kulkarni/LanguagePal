@@ -183,8 +183,10 @@ export default function Practice() {
   return (
     <div className="flex h-screen">
       {/* Teacher Section with Context Starters */}
-      <div className="w-1/2 flex flex-col items-center justify-center bg-accent/10 gap-8">
-        <TeacherAvatar className="scale-150" />
+      <div className="w-1/2 flex flex-col items-center justify-center bg-accent/10 p-8">
+        <div className="mb-12">
+          <TeacherAvatar className="scale-150" />
+        </div>
         <ConversationStarters onSelectContext={handleContextSelect} />
       </div>
 
@@ -206,7 +208,7 @@ export default function Practice() {
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <div
-                      className="space-x-1"
+                      className="space-x-1 whitespace-pre-wrap break-words"
                       onClick={(e) => {
                         const target = e.target as HTMLSpanElement;
                         if (target.dataset.word) {
@@ -219,7 +221,7 @@ export default function Practice() {
                           <TooltipTrigger asChild>
                             <span
                               data-word={word}
-                              className="hover:text-primary hover:underline cursor-pointer relative"
+                              className="hover:text-primary hover:underline cursor-pointer inline-block"
                             >
                               {word}
                               {translations[word]?.loading && (
