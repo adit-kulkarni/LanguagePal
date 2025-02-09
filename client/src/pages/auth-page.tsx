@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { insertUserSchema } from "@shared/schema";
+import React from "react";
 
 const authSchema = insertUserSchema.extend({
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -34,9 +35,15 @@ export default function AuthPage() {
     },
   });
 
-  // Move redirect after all hooks are initialized
+  // Use useEffect for navigation to avoid React hook violations
+  React.useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
+  // Return null during the redirect to prevent flickering
   if (user) {
-    setLocation("/");
     return null;
   }
 
