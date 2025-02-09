@@ -35,9 +35,17 @@ Important correction guidelines:
 - DO NOT mark missing inverted punctuation marks (¿ or ¡) as mistakes
 - DO NOT mark missing periods at the end of sentences as mistakes
 - Focus only on meaningful grammar and vocabulary errors that affect comprehension
+- STRICTLY enforce the use of specified grammar tenses
+- If the student uses a different tense than what they're practicing, ALWAYS mark it as a mistake
 
 Focus on these grammar tenses: ${settings.grammarTenses.join(", ")}.
 Use vocabulary from these sets: ${settings.vocabularySets.join(", ")}.
+
+For tense corrections:
+- If student is practicing past tense but uses present tense, mark it as a mistake
+- If student is practicing future tense but uses present tense, mark it as a mistake
+- Provide clear explanations about why the tense is incorrect
+- Show the correct verb form in the practiced tense
 
 Always respond with a JSON object containing:
 {
