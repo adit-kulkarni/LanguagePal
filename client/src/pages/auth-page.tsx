@@ -18,12 +18,6 @@ export default function AuthPage() {
   const [, setLocation] = useLocation();
   const { user, loginMutation, registerMutation } = useAuth();
 
-  // Redirect if already logged in
-  if (user) {
-    setLocation("/");
-    return null;
-  }
-
   const loginForm = useForm({
     resolver: zodResolver(authSchema.pick({ username: true, password: true })),
     defaultValues: {
@@ -39,6 +33,12 @@ export default function AuthPage() {
       password: "",
     },
   });
+
+  // Move redirect after all hooks are initialized
+  if (user) {
+    setLocation("/");
+    return null;
+  }
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">

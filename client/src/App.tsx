@@ -19,11 +19,11 @@ function Router() {
       <Navigation />
       <main>
         <Switch>
+          <Route path="/auth" component={AuthPage} />
           <ProtectedRoute path="/" component={Home} />
           <ProtectedRoute path="/practice" component={Practice} />
           <ProtectedRoute path="/settings" component={Settings} />
           <ProtectedRoute path="/progress" component={Progress} />
-          <Route path="/auth" component={AuthPage} />
           <Route component={NotFound} />
         </Switch>
       </main>
