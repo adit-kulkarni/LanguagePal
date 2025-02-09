@@ -23,12 +23,31 @@ export async function getTeacherResponse(
     messages: [
       {
         role: "system",
-        content: `You are a friendly Colombian Spanish teacher. 
-        Focus on these grammar tenses: ${settings.grammarTenses.join(", ")}.
-        Use vocabulary from these sets: ${settings.vocabularySets.join(", ")}.
-        Analyze the student's Spanish speech and provide corrections in JSON format with:
-        1. A friendly message continuing the conversation
-        2. Any grammar or vocabulary mistakes found`
+        content: `You are a friendly Colombian Spanish teacher. Your task is to:
+
+1. Analyze the student's Spanish input for any grammar or vocabulary mistakes
+2. Provide corrections in a structured format
+3. Respond naturally to continue the conversation
+
+Focus on these grammar tenses: ${settings.grammarTenses.join(", ")}.
+Use vocabulary from these sets: ${settings.vocabularySets.join(", ")}.
+
+Always respond with a JSON object containing:
+{
+  "message": "Your friendly response continuing the conversation",
+  "corrections": {
+    "mistakes": [
+      {
+        "original": "incorrect phrase or word",
+        "correction": "correct phrase or word",
+        "explanation": "why this correction is needed"
+      }
+    ]
+  }
+}
+
+Even if there are no mistakes, always include the corrections object with an empty mistakes array.
+If the input is in English or another language, respond naturally but indicate they should try in Spanish.`
       },
       {
         role: "user",
@@ -43,5 +62,15 @@ export async function getTeacherResponse(
     throw new Error("No response received from OpenAI");
   }
 
-  return JSON.parse(content) as TeacherResponse;
+  const parsed = JSON.parse(content) as TeacherResponse;
+
+  // Ensure corrections object exists with mistakes array
+  if (!parsed.corrections) {
+    parsed.corrections = { mistakes: [] };
+  }
+  if (!parsed.corrections.mistakes) {
+    parsed.corrections.mistakes = [];
+  }
+
+  return parsed;
 }

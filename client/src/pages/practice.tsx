@@ -149,7 +149,7 @@ export default function Practice() {
               <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center justify-between">
-                    <div 
+                    <div
                       className="space-x-1"
                       onClick={(e) => {
                         const target = e.target as HTMLSpanElement;
@@ -161,7 +161,7 @@ export default function Practice() {
                       {message.content && message.content.split(' ').map((word, j) => (
                         <Tooltip key={j}>
                           <TooltipTrigger asChild>
-                            <span 
+                            <span
                               data-word={word}
                               className="hover:text-primary hover:underline cursor-pointer relative"
                             >
@@ -172,10 +172,10 @@ export default function Practice() {
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            {translations[word]?.loading 
+                            {translations[word]?.loading
                               ? "Translating..."
-                              : translations[word]?.translation 
-                                ? translations[word].translation 
+                              : translations[word]?.translation
+                                ? translations[word].translation
                                 : "Click to translate"}
                           </TooltipContent>
                         </Tooltip>
@@ -193,13 +193,13 @@ export default function Practice() {
                     )}
                   </div>
 
-                  {message.corrections && message.corrections.length > 0 && (
+                  {message.corrections?.mistakes && message.corrections.mistakes.length > 0 && (
                     <div className="mt-2 space-y-2">
                       <div className="flex items-center gap-2 text-yellow-600">
                         <AlertCircle className="h-4 w-4" />
                         <span className="text-sm font-medium">Corrections:</span>
                       </div>
-                      {message.corrections.map((correction, j) => (
+                      {message.corrections.mistakes.map((correction, j) => (
                         <div key={j} className="text-sm text-muted-foreground">
                           <p><strong>{correction.original}</strong> → {correction.correction}</p>
                           <p>{correction.explanation}</p>
