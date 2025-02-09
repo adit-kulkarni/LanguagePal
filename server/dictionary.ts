@@ -1,18 +1,10 @@
 import { z } from "zod";
 
-const dictionaryResponseSchema = z.array(z.object({
-  word: z.string(),
-  meanings: z.array(z.object({
-    partOfSpeech: z.string(),
-    definitions: z.array(z.object({
-      definition: z.string(),
-      example: z.string().optional(),
-    })),
-  })),
-  phonetic: z.string().optional(),
-})).min(1);
-
-type DictionaryResponse = z.infer<typeof dictionaryResponseSchema>;
+const wiktionaryResponseSchema = z.object({
+  title: z.string(),
+  extract: z.string(),
+  pageid: z.number(),
+});
 
 export async function translateWord(word: string): Promise<{ 
   translation: string;
@@ -20,33 +12,29 @@ export async function translateWord(word: string): Promise<{
   phonetic?: string;
 }> {
   try {
+    // Use the Spanish Wiktionary API
     const response = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`
+      `https://es.wiktionary.org/api/rest_v1/page/summary/${encodeURIComponent(word)}`
     );
-    
+
     if (!response.ok) {
       throw new Error('Word not found');
     }
 
     const data = await response.json();
-    const parsed = dictionaryResponseSchema.parse(data);
-    const entry = parsed[0];
+    const parsed = wiktionaryResponseSchema.parse(data);
 
-    // Get the primary definition
-    const primaryMeaning = entry.meanings[0];
-    const translation = primaryMeaning.definitions[0].definition;
-    
-    // Collect examples if available
-    const examples = entry.meanings
-      .flatMap(m => m.definitions)
-      .filter(d => d.example)
-      .map(d => d.example!)
-      .slice(0, 3);
+    // Extract translation from the Wiktionary response
+    // The extract typically contains the English translation in parentheses
+    const extractMatches = parsed.extract.match(/\((.*?)\)/);
+    const translation = extractMatches ? extractMatches[1].split(',')[0].trim() : parsed.extract;
+
+    // For examples, we'll rely on the OpenAI API through the word-examples endpoint
+    // as Wiktionary's example extraction would be more complex
 
     return {
       translation,
-      examples: examples.length > 0 ? examples : undefined,
-      phonetic: entry.phonetic
+      examples: undefined, // Examples will be loaded separately via the word-examples endpoint
     };
   } catch (error) {
     console.error('Dictionary API error:', error);
