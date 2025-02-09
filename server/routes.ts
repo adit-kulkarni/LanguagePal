@@ -107,7 +107,7 @@ export function registerRoutes(app: Express): Server {
           content: teacherResponse.message
         });
 
-        return res.json({ 
+        return res.json({
           session,
           teacherResponse
         });
@@ -242,16 +242,27 @@ export function registerRoutes(app: Express): Server {
 
       // If all parsing attempts fail, return empty array with message
       console.log('No valid examples could be generated');
-      res.json({ 
-        examples: [], 
-        message: `Could not generate example sentences for "${word}". Please try another word.` 
+      res.json({
+        examples: [],
+        message: `Could not generate example sentences for "${word}". Please try another word.`
       });
     } catch (error) {
       console.error('Examples error:', error);
-      res.json({ 
-        examples: [], 
-        message: "Failed to generate example sentences. Please try again." 
+      res.json({
+        examples: [],
+        message: "Failed to generate example sentences. Please try again."
       });
+    }
+  });
+
+  app.delete("/api/sessions/:sessionId", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      await storage.deleteSession(sessionId);
+      res.status(200).json({ message: "Session deleted successfully" });
+    } catch (error) {
+      console.error('Delete session error:', error);
+      res.status(500).json({ message: "Failed to delete session" });
     }
   });
 

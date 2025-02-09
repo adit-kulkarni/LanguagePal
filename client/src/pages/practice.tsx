@@ -16,6 +16,7 @@ import { ConversationStarters } from "@/components/conversation-starters";
 import { useState } from "react";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Message {
   type: "user" | "teacher";
@@ -49,6 +50,7 @@ export default function Practice() {
   const { toast } = useToast();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingIntensity, setSpeakingIntensity] = useState(0);
+  const queryClient = useQueryClient();
 
   const speak = React.useCallback((text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
@@ -203,6 +205,8 @@ export default function Practice() {
         type: "teacher",
         content: data.teacherResponse.message
       }]);
+
+      queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
     } catch (error) {
       toast({
         variant: "destructive",
@@ -231,6 +235,15 @@ export default function Practice() {
     }
   };
 
+  const handleNewChat = () => {
+    setCurrentSession(null);
+    setMessages([{
+      type: "teacher",
+      content: "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!"
+    }]);
+    queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
+  };
+
   return (
     <div className="h-screen overflow-hidden flex">
       <div className="w-80 border-r h-full overflow-hidden flex flex-col">
@@ -238,10 +251,7 @@ export default function Practice() {
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => setMessages([{
-              type: "teacher",
-              content: "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!"
-            }])}
+            onClick={handleNewChat}
           >
             New Chat
           </Button>

@@ -12,6 +12,7 @@ export interface IStorage {
   createSession(session: InsertConversationSession): Promise<ConversationSession>;
   getSession(id: number): Promise<ConversationSession | undefined>;
   getUserSessions(userId: number): Promise<ConversationSession[]>;
+  deleteSession(id: number): Promise<void>;
 
   // Message management
   createMessage(message: InsertMessage): Promise<Message>;
@@ -74,6 +75,13 @@ export class DatabaseStorage implements IStorage {
       .from(conversationSessions)
       .where(eq(conversationSessions.userId, userId))
       .orderBy(desc(conversationSessions.lastMessageAt));
+  }
+
+  async deleteSession(id: number): Promise<void> {
+    // Delete all messages first due to foreign key constraint
+    await db.delete(messages).where(eq(messages.sessionId, id));
+    // Then delete the session
+    await db.delete(conversationSessions).where(eq(conversationSessions.id, id));
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
