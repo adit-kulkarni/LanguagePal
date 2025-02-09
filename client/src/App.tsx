@@ -16,18 +16,17 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <div className="md:grid md:grid-cols-[auto,1fr]">
-      <Navigation />
-      <main>
-        <Switch>
-          <Route path="/" component={AuthPage} />
-          <Route path="/auth" component={AuthPage} />
-          <ProtectedRoute path="/home" component={Home} />
-          <ProtectedRoute path="/practice" component={Practice} />
-          <ProtectedRoute path="/settings" component={Settings} />
-          <ProtectedRoute path="/progress" component={Progress} />
-          <Route component={NotFound} />
-        </Switch>
-      </main>
+      <Switch>
+        <Route path="/auth">
+          <AuthPage />
+        </Route>
+        <ProtectedRoute path="/" component={Home} />
+        <ProtectedRoute path="/home" component={Home} />
+        <ProtectedRoute path="/practice" component={Practice} />
+        <ProtectedRoute path="/settings" component={Settings} />
+        <ProtectedRoute path="/progress" component={Progress} />
+        <Route component={NotFound} />
+      </Switch>
     </div>
   );
 }

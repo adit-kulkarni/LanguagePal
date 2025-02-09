@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { insertUserSchema } from "@shared/schema";
 import React from "react";
+import { Loader2 } from "lucide-react";
 
 const authSchema = insertUserSchema.extend({
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -17,7 +18,7 @@ const authSchema = insertUserSchema.extend({
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
-  const { user, loginMutation, registerMutation } = useAuth();
+  const { user, isLoading, loginMutation, registerMutation } = useAuth();
 
   const loginForm = useForm({
     resolver: zodResolver(authSchema.pick({ username: true, password: true })),
@@ -36,12 +37,19 @@ export default function AuthPage() {
   });
 
   React.useEffect(() => {
-    if (user) {
+    if (user && !isLoading) {
       setLocation("/home");
     }
-  }, [user, setLocation]);
+  }, [user, isLoading, setLocation]);
 
-  // Return null during the redirect to prevent flickering
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-border" />
+      </div>
+    );
+  }
+
   if (user) {
     return null;
   }
