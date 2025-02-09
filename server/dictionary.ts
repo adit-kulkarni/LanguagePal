@@ -6,20 +6,20 @@ const translationResponseSchema = z.object({
     match: z.number()
   }),
   responseStatus: z.number(),
-  responderId: z.string().optional(),
+  responderId: z.string().nullable().optional(),
   matches: z.array(
     z.object({
       id: z.string(),
       segment: z.string(),
       translation: z.string(),
-      quality: z.string(),
-      reference: z.string().optional(),
-      usage_count: z.number(),
-      subject: z.string().optional(),
-      created_by: z.string().optional(),
-      last_updated_by: z.string().optional(),
-      create_date: z.string().optional(),
-      last_update_date: z.string().optional(),
+      quality: z.union([z.string(), z.number()]),
+      reference: z.string().nullable().optional(),
+      usage_count: z.number().optional(),
+      subject: z.string().nullable().optional(),
+      created_by: z.string().nullable().optional(),
+      last_updated_by: z.string().nullable().optional(),
+      create_date: z.string().nullable().optional(),
+      last_update_date: z.string().nullable().optional(),
       match: z.number()
     })
   ).optional()
