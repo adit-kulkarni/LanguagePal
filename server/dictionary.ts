@@ -9,13 +9,13 @@ const translationResponseSchema = z.object({
   responderId: z.string().nullable().optional(),
   matches: z.array(
     z.object({
-      id: z.string(),
+      id: z.union([z.string(), z.number()]).transform(val => String(val)),
       segment: z.string(),
       translation: z.string(),
       quality: z.union([z.string(), z.number()]),
       reference: z.string().nullable().optional(),
       usage_count: z.number().optional(),
-      subject: z.string().nullable().optional(),
+      subject: z.union([z.string(), z.boolean()]).nullable().optional(),
       created_by: z.string().nullable().optional(),
       last_updated_by: z.string().nullable().optional(),
       create_date: z.string().nullable().optional(),
