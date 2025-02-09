@@ -13,7 +13,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-
 interface Message {
   type: "user" | "teacher";
   content: string;
@@ -28,8 +27,8 @@ interface TranslationCache {
   [word: string]: {
     translation: string;
     examples?: string[];
-    phonetic?: string;
     loading?: boolean;
+    loadingExamples?: boolean;
   };
 }
 
@@ -49,28 +48,99 @@ export default function Practice() {
     window.speechSynthesis.speak(utterance);
   }, []);
 
+  const showExamples = async (word: string) => {
+    // If already loading examples, don't do anything
+    if (translations[word]?.loadingExamples) return;
+
+    // Set loading state for examples
+    setTranslations(prev => ({
+      ...prev,
+      [word]: { 
+        ...prev[word],
+        loadingExamples: true 
+      }
+    }));
+
+    try {
+      const response = await apiRequest("POST", "/api/word-examples", { word });
+      const data = await response.json();
+
+      // Update translations with examples
+      setTranslations(prev => ({
+        ...prev,
+        [word]: {
+          ...prev[word],
+          examples: data.examples,
+          loadingExamples: false
+        }
+      }));
+
+      // Show toast with examples
+      if (data.examples && data.examples.length > 0) {
+        toast({
+          title: `Examples for "${word}"`,
+          description: (
+            <div className="space-y-2">
+              <ul className="list-disc pl-4 text-sm space-y-2">
+                {data.examples.map((example: string, i: number) => (
+                  <li key={i} className="leading-relaxed">{example}</li>
+                ))}
+              </ul>
+            </div>
+          ),
+          duration: 6000,
+        });
+      } else {
+        toast({
+          title: "No examples found",
+          description: `Could not find example sentences for "${word}"`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Examples error:", error);
+      setTranslations(prev => ({
+        ...prev,
+        [word]: {
+          ...prev[word],
+          loadingExamples: false
+        }
+      }));
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to get example sentences"
+      });
+    }
+  };
+
   // Handle word click for translation
   const handleWordClick = async (word: string) => {
-    // If we already have the translation and examples, show them
+    // If we already have the translation, show it
     if (translations[word] && !translations[word].loading) {
       toast({
         title: `Translation for "${word}"`,
         description: (
-          <div className="space-y-2">
+          <div className="space-y-4">
             <div className="font-medium text-lg">{translations[word].translation}</div>
-            {translations[word].examples && translations[word].examples.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-border">
-                <p className="text-sm font-semibold mb-2">Example Sentences:</p>
-                <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-2">
-                  {translations[word].examples.map((example, i) => (
-                    <li key={i} className="leading-relaxed">{example}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <Button 
+              onClick={() => showExamples(word)}
+              disabled={translations[word]?.loadingExamples}
+              size="sm"
+              className="w-full"
+            >
+              {translations[word]?.loadingExamples ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading Examples...
+                </>
+              ) : (
+                'Show Example Sentences'
+              )}
+            </Button>
           </div>
         ),
-        duration: 6000, // Show for 6 seconds to give time to read examples
+        duration: 5000,
       });
       return;
     }
@@ -85,48 +155,34 @@ export default function Practice() {
     }));
 
     try {
-      // Fetch both translation and examples in parallel
-      const [translationResponse, examplesResponse] = await Promise.all([
-        apiRequest("POST", "/api/translate", { word }),
-        apiRequest("POST", "/api/word-examples", { word })
-      ]);
+      const response = await apiRequest("POST", "/api/translate", { word });
+      const data = await response.json();
 
-      const [translationData, examplesData] = await Promise.all([
-        translationResponse.json(),
-        examplesResponse.json()
-      ]);
-
-      // Store the translation and examples
-      const updatedTranslation = { 
-        translation: translationData.translation,
-        examples: examplesData.examples,
-        loading: false 
-      };
-
+      // Store the translation
       setTranslations(prev => ({
         ...prev,
-        [word]: updatedTranslation
+        [word]: { 
+          translation: data.translation,
+          loading: false 
+        }
       }));
 
-      // Show toast with translation and examples
+      // Show toast with translation
       toast({
         title: `Translation for "${word}"`,
         description: (
-          <div className="space-y-2">
-            <div className="font-medium text-lg">{translationData.translation}</div>
-            {examplesData.examples && examplesData.examples.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-border">
-                <p className="text-sm font-semibold mb-2">Example Sentences:</p>
-                <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-2">
-                  {examplesData.examples.map((example: string, i: number) => (
-                    <li key={i} className="leading-relaxed">{example}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+          <div className="space-y-4">
+            <div className="font-medium text-lg">{data.translation}</div>
+            <Button 
+              onClick={() => showExamples(word)}
+              size="sm"
+              className="w-full"
+            >
+              Show Example Sentences
+            </Button>
           </div>
         ),
-        duration: 6000, // Show for 6 seconds to give time to read examples
+        duration: 5000,
       });
     } catch (error) {
       console.error("Translation error:", error);
@@ -137,7 +193,7 @@ export default function Practice() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to get translation and examples"
+        description: "Failed to get translation"
       });
     }
   };
