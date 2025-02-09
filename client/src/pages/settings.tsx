@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { grammarTenses, vocabularySets } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { HelpCircle } from "lucide-react";
 import {
   HoverCard,
   HoverCardContent,
@@ -68,7 +69,7 @@ export default function Settings() {
               <FormItem>
                 <FormLabel>Grammar Tenses</FormLabel>
                 <FormDescription>
-                  Select the grammar tenses you want to practice. Hover over each tense to see examples.
+                  Select the grammar tenses you want to practice. Hover over the question mark to see examples.
                 </FormDescription>
                 <div className="grid gap-4 pt-2">
                   {grammarTenses.map((tense) => (
@@ -91,12 +92,13 @@ export default function Settings() {
                               }}
                             />
                           </FormControl>
-                          <div className="grid gap-1.5">
+                          <div className="flex items-center gap-2">
+                            <FormLabel className="font-normal">
+                              {tense.name}
+                            </FormLabel>
                             <HoverCard openDelay={200}>
                               <HoverCardTrigger asChild>
-                                <FormLabel className="font-normal hover:cursor-help">
-                                  {tense.name}
-                                </FormLabel>
+                                <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-primary cursor-help transition-colors" />
                               </HoverCardTrigger>
                               <HoverCardContent className="w-80">
                                 <div className="space-y-2">
