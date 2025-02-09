@@ -46,6 +46,7 @@ export default function Practice() {
   const { toast } = useToast();
   const [currentContext, setCurrentContext] = React.useState<string>("");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingIntensity, setSpeakingIntensity] = useState(0);
 
   // Speech synthesis setup
   const speak = React.useCallback((text: string) => {
@@ -53,9 +54,27 @@ export default function Practice() {
     utterance.lang = 'es-CO'; // Colombian Spanish
     utterance.rate = 0.9; // Slightly slower for clarity
 
+    // Handle speech animation
     utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setSpeakingIntensity(0);
+    };
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setSpeakingIntensity(0);
+    };
+
+    // Handle boundary events for syllable-based animation
+    utterance.onboundary = (event) => {
+      if (event.name === 'word' || event.name === 'sentence') {
+        // Create a natural-feeling "bounce" effect
+        setSpeakingIntensity(1);
+        setTimeout(() => setSpeakingIntensity(0.5), 50);
+        setTimeout(() => setSpeakingIntensity(0.2), 100);
+        setTimeout(() => setSpeakingIntensity(0), 150);
+      }
+    };
 
     window.speechSynthesis.speak(utterance);
   }, []);
@@ -194,7 +213,11 @@ export default function Practice() {
       {/* Teacher Section with Context Starters */}
       <div className="w-1/2 flex flex-col items-center bg-accent/10 py-8">
         <div className="mb-8 flex flex-col items-center">
-          <TeacherAvatar className="scale-125 mb-2" speaking={isSpeaking} />
+          <TeacherAvatar 
+            className="scale-125 mb-2" 
+            speaking={isSpeaking}
+            intensity={speakingIntensity}
+          />
         </div>
         <div className="w-full px-4">
           <ConversationStarters onSelectContext={handleContextSelect} />
