@@ -232,17 +232,31 @@ export default function Practice() {
   };
 
   return (
-    <div className="flex h-screen">
-      <div className="w-80 border-r h-full">
-        <ConversationSidebar
-          userId={1}
-          currentSessionId={currentSession?.id}
-          onSelectSession={handleSessionSelect}
-        />
+    <div className="h-screen overflow-hidden flex">
+      <div className="w-80 border-r h-full overflow-hidden flex flex-col">
+        <div className="p-4 border-b">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setMessages([{
+              type: "teacher",
+              content: "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!"
+            }])}
+          >
+            New Chat
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <ConversationSidebar
+            userId={1}
+            currentSessionId={currentSession?.id}
+            onSelectSession={handleSessionSelect}
+          />
+        </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-2">
-        <div className="flex flex-col items-center bg-accent/10 py-8">
+      <div className="flex-1 grid grid-cols-2 overflow-hidden">
+        <div className="flex flex-col items-center bg-accent/10 py-8 overflow-y-auto">
           <div className="mb-8 flex flex-col items-center">
             <TeacherAvatar
               className="scale-125 mb-2"
@@ -255,8 +269,8 @@ export default function Practice() {
           </div>
         </div>
 
-        <div className="flex flex-col p-4">
-          <h1 className="text-2xl font-bold mb-4">
+        <div className="flex flex-col p-4 overflow-y-auto">
+          <h1 className="text-2xl font-bold mb-4 flex-none">
             Practice Spanish
             {currentSession && (
               <span className="text-sm font-normal text-muted-foreground ml-2">
@@ -265,8 +279,8 @@ export default function Practice() {
             )}
           </h1>
 
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-4">
+          <ScrollArea className="flex-1">
+            <div className="space-y-4 pr-4">
               {messages.map((message, i) => (
                 <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
                   <CardContent className="p-4 space-y-2">
@@ -367,7 +381,7 @@ export default function Practice() {
             </div>
           </ScrollArea>
 
-          <div className="mt-4">
+          <div className="mt-4 flex-none">
             <SpeechInput onSubmit={handleSubmit} />
           </div>
         </div>
