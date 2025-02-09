@@ -1,6 +1,6 @@
 import { users, conversations, type User, type InsertUser, type Conversation, type InsertConversation } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -9,6 +9,7 @@ export interface IStorage {
   updateUserProgress(id: number, progress: User["progress"]): Promise<User>;
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getUserConversations(userId: number): Promise<Conversation[]>;
+  getRecentConversations(userId: number, context: string, limit?: number): Promise<Conversation[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -56,7 +57,22 @@ export class DatabaseStorage implements IStorage {
     return db
       .select()
       .from(conversations)
-      .where(eq(conversations.userId, userId));
+      .where(eq(conversations.userId, userId))
+      .orderBy(desc(conversations.createdAt));
+  }
+
+  async getRecentConversations(userId: number, context: string, limit: number = 5): Promise<Conversation[]> {
+    return db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.userId, userId),
+          eq(conversations.context, context)
+        )
+      )
+      .orderBy(desc(conversations.createdAt))
+      .limit(limit);
   }
 }
 

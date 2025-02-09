@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -28,11 +28,16 @@ export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   transcript: text("transcript").notNull(),
+  context: text("context").default(""),
+  createdAt: timestamp("created_at").defaultNow(),
   corrections: jsonb("corrections").$type<{
     mistakes: Array<{
       original: string;
       correction: string;
       explanation: string;
+      explanation_es: string;
+      type: "punctuation" | "grammar" | "vocabulary";
+      ignored?: boolean;
     }>;
   }>().default({ mistakes: [] })
 });

@@ -17,12 +17,24 @@ export interface TeacherResponse {
   };
 }
 
+interface ConversationHistory {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export async function getTeacherResponse(
   transcript: string,
-  settings: { grammarTenses: string[]; vocabularySets: string[] }
+  settings: { grammarTenses: string[]; vocabularySets: string[] },
+  previousConversations: { transcript: string; context: string }[] = []
 ): Promise<TeacherResponse> {
   const isContextStart = transcript.startsWith("START_CONTEXT:");
   const context = isContextStart ? transcript.replace("START_CONTEXT:", "").trim() : "";
+
+  // Convert previous conversations to chat format
+  const conversationHistory: ConversationHistory[] = previousConversations.map((conv, index) => ({
+    role: index % 2 === 0 ? "user" as const : "assistant" as const,
+    content: conv.transcript
+  }));
 
   const systemPrompt = transcript.startsWith("Generate EXACTLY 2") 
     ? {
@@ -62,7 +74,8 @@ Remember to:
 - Keep the conversation moving forward with questions and prompts
 - Use ONLY the allowed tenses in your own responses
 - Share cultural insights when relevant to the conversation
-- Maintain your warm, encouraging personality`}
+- Maintain your warm, encouraging personality
+- ALWAYS maintain context from previous messages and respond accordingly`}
 
 Always respond with a JSON object containing:
 {
@@ -87,15 +100,18 @@ Even if there are no mistakes, always include the corrections object with an emp
 ${!isContextStart ? "If the input is in English or another language, respond naturally but encourage them to try in Spanish." : ""}`
       };
 
+  const messages = [
+    systemPrompt,
+    ...conversationHistory,
+    {
+      role: "user" as const,
+      content: transcript
+    }
+  ];
+
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
-    messages: [
-      systemPrompt,
-      {
-        role: "user",
-        content: transcript
-      }
-    ],
+    messages,
     response_format: { type: "json_object" }
   });
 

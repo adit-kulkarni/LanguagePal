@@ -60,14 +60,29 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "User settings not configured" });
       }
 
+      // Get the current context from the transcript or use existing context
+      const isContextStart = req.body.transcript.startsWith("START_CONTEXT:");
+      const context = isContextStart 
+        ? req.body.transcript.replace("START_CONTEXT:", "").trim()
+        : req.body.context || "";
+
+      // Get recent conversations for context
+      const recentConversations = await storage.getRecentConversations(
+        user.id,
+        context,
+        5 // Get last 5 messages for context
+      );
+
       const teacherResponse = await getTeacherResponse(
         req.body.transcript,
-        user.settings
+        user.settings,
+        recentConversations
       );
 
       const conversation = await storage.createConversation({
         userId: user.id,
         transcript: req.body.transcript,
+        context: context,
         corrections: teacherResponse.corrections
       });
 
