@@ -104,25 +104,34 @@ export function registerRoutes(app: Express): Server {
       const word = z.string().parse(req.body.word);
 
       const response = await getTeacherResponse(
-        `Return a JSON array containing exactly 2 simple example sentences in Spanish using the word "${word}". Each sentence should be 5-8 words long. Format: ["Sentence 1.", "Sentence 2."]`,
+        `Return a JSON array of EXACTLY 2 example sentences in Spanish using the word "${word}". 
+         Each sentence should be simple and SHORT (max 6 words).
+         Must be in this EXACT format, no other text: ["Example 1.", "Example 2."]`,
         { grammarTenses: [], vocabularySets: [] }
       );
 
       try {
+        // First try to parse the entire response as JSON
         const examples = JSON.parse(response.message);
         if (Array.isArray(examples)) {
           return res.json({ examples });
         }
       } catch {
-        const jsonMatch = response.message.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          const examples = JSON.parse(jsonMatch[0]);
-          if (Array.isArray(examples)) {
-            return res.json({ examples });
+        // If that fails, try to extract just the array part
+        try {
+          const jsonMatch = response.message.match(/\[(.*?)\]/s);
+          if (jsonMatch) {
+            const examples = JSON.parse(jsonMatch[0]);
+            if (Array.isArray(examples)) {
+              return res.json({ examples });
+            }
           }
+        } catch (err) {
+          console.error('Failed to parse examples:', err);
         }
       }
 
+      // If all parsing attempts fail, return empty array
       res.json({ examples: [] });
     } catch (error) {
       console.error('Examples error:', error);

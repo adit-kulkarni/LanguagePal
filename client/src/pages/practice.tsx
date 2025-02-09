@@ -54,23 +54,23 @@ export default function Practice() {
     // If we already have the translation and examples, show them
     if (translations[word] && !translations[word].loading) {
       toast({
-        title: word,
+        title: `Translation for "${word}"`,
         description: (
           <div className="space-y-2">
-            <p className="font-medium">{translations[word].translation}</p>
+            <div className="font-medium text-lg">{translations[word].translation}</div>
             {translations[word].examples && translations[word].examples.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-border">
-                <p className="text-sm font-medium mb-1">Example Sentences:</p>
-                <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-sm font-semibold mb-2">Example Sentences:</p>
+                <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-2">
                   {translations[word].examples.map((example, i) => (
-                    <li key={i}>{example}</li>
+                    <li key={i} className="leading-relaxed">{example}</li>
                   ))}
                 </ul>
               </div>
             )}
           </div>
         ),
-        duration: 5000, // Show for 5 seconds to give time to read examples
+        duration: 6000, // Show for 6 seconds to give time to read examples
       });
       return;
     }
@@ -110,23 +110,23 @@ export default function Practice() {
 
       // Show toast with translation and examples
       toast({
-        title: word,
+        title: `Translation for "${word}"`,
         description: (
           <div className="space-y-2">
-            <p className="font-medium">{translationData.translation}</p>
+            <div className="font-medium text-lg">{translationData.translation}</div>
             {examplesData.examples && examplesData.examples.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-border">
-                <p className="text-sm font-medium mb-1">Example Sentences:</p>
-                <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-sm font-semibold mb-2">Example Sentences:</p>
+                <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-2">
                   {examplesData.examples.map((example: string, i: number) => (
-                    <li key={i}>{example}</li>
+                    <li key={i} className="leading-relaxed">{example}</li>
                   ))}
                 </ul>
               </div>
             )}
           </div>
         ),
-        duration: 5000, // Show for 5 seconds to give time to read examples
+        duration: 6000, // Show for 6 seconds to give time to read examples
       });
     } catch (error) {
       console.error("Translation error:", error);
