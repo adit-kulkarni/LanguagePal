@@ -24,11 +24,20 @@ export const users = pgTable("users", {
   })
 });
 
-export const conversations = pgTable("conversations", {
+export const conversationSessions = pgTable("conversation_sessions", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  transcript: text("transcript").notNull(),
-  context: text("context").default(""),
+  title: text("title").notNull(),
+  context: text("context").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastMessageAt: timestamp("last_message_at").defaultNow()
+});
+
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull(),
+  type: text("type").notNull(), // "user" or "teacher"
+  content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   corrections: jsonb("corrections").$type<{
     mistakes: Array<{
@@ -43,9 +52,12 @@ export const conversations = pgTable("conversations", {
 });
 
 export const insertUserSchema = createInsertSchema(users);
-export const insertConversationSchema = createInsertSchema(conversations);
+export const insertSessionSchema = createInsertSchema(conversationSessions);
+export const insertMessageSchema = createInsertSchema(messages);
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
-export type Conversation = typeof conversations.$inferSelect;
-export type InsertConversation = typeof conversations.$inferInsert;
+export type ConversationSession = typeof conversationSessions.$inferSelect;
+export type InsertConversationSession = typeof conversationSessions.$inferInsert;
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = typeof messages.$inferInsert;

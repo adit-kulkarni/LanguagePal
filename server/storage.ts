@@ -1,4 +1,4 @@
-import { users, conversations, type User, type InsertUser, type Conversation, type InsertConversation } from "@shared/schema";
+import { users, messages, conversationSessions, type User, type InsertUser, type Message, type InsertMessage, type ConversationSession, type InsertConversationSession } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
 
@@ -7,9 +7,16 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUserSettings(id: number, settings: User["settings"]): Promise<User>;
   updateUserProgress(id: number, progress: User["progress"]): Promise<User>;
-  createConversation(conversation: InsertConversation): Promise<Conversation>;
-  getUserConversations(userId: number): Promise<Conversation[]>;
-  getRecentConversations(userId: number, context: string, limit?: number): Promise<Conversation[]>;
+
+  // Session management
+  createSession(session: InsertConversationSession): Promise<ConversationSession>;
+  getSession(id: number): Promise<ConversationSession | undefined>;
+  getUserSessions(userId: number): Promise<ConversationSession[]>;
+
+  // Message management
+  createMessage(message: InsertMessage): Promise<Message>;
+  getSessionMessages(sessionId: number): Promise<Message[]>;
+  getRecentMessages(sessionId: number, limit?: number): Promise<Message[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -45,33 +52,59 @@ export class DatabaseStorage implements IStorage {
     return updatedUser;
   }
 
-  async createConversation(conversation: InsertConversation): Promise<Conversation> {
-    const [newConversation] = await db
-      .insert(conversations)
-      .values(conversation)
+  async createSession(session: InsertConversationSession): Promise<ConversationSession> {
+    const [newSession] = await db
+      .insert(conversationSessions)
+      .values(session)
       .returning();
-    return newConversation;
+    return newSession;
   }
 
-  async getUserConversations(userId: number): Promise<Conversation[]> {
-    return db
+  async getSession(id: number): Promise<ConversationSession | undefined> {
+    const [session] = await db
       .select()
-      .from(conversations)
-      .where(eq(conversations.userId, userId))
-      .orderBy(desc(conversations.createdAt));
+      .from(conversationSessions)
+      .where(eq(conversationSessions.id, id));
+    return session;
   }
 
-  async getRecentConversations(userId: number, context: string, limit: number = 5): Promise<Conversation[]> {
+  async getUserSessions(userId: number): Promise<ConversationSession[]> {
     return db
       .select()
-      .from(conversations)
-      .where(
-        and(
-          eq(conversations.userId, userId),
-          eq(conversations.context, context)
-        )
-      )
-      .orderBy(desc(conversations.createdAt))
+      .from(conversationSessions)
+      .where(eq(conversationSessions.userId, userId))
+      .orderBy(desc(conversationSessions.lastMessageAt));
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const [newMessage] = await db
+      .insert(messages)
+      .values(message)
+      .returning();
+
+    // Update the session's lastMessageAt timestamp
+    await db
+      .update(conversationSessions)
+      .set({ lastMessageAt: new Date() })
+      .where(eq(conversationSessions.id, message.sessionId));
+
+    return newMessage;
+  }
+
+  async getSessionMessages(sessionId: number): Promise<Message[]> {
+    return db
+      .select()
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .orderBy(desc(messages.createdAt));
+  }
+
+  async getRecentMessages(sessionId: number, limit: number = 5): Promise<Message[]> {
+    return db
+      .select()
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .orderBy(desc(messages.createdAt))
       .limit(limit);
   }
 }

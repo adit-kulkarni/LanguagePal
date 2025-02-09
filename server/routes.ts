@@ -2,7 +2,7 @@ import { Express } from "express";
 import { createServer, Server } from "http";
 import { storage } from "./storage";
 import { getTeacherResponse } from "./openai";
-import { insertUserSchema } from "@shared/schema";
+import { insertUserSchema, insertSessionSchema, insertMessageSchema } from "@shared/schema";
 import { translateWord } from "./dictionary";
 import { z } from "zod";
 
@@ -32,6 +32,89 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // New session management endpoints
+  app.post("/api/sessions", async (req, res) => {
+    try {
+      const sessionData = insertSessionSchema.parse({
+        ...req.body,
+        lastMessageAt: new Date()
+      });
+      const session = await storage.createSession(sessionData);
+      res.json(session);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid session data" });
+    }
+  });
+
+  app.get("/api/users/:userId/sessions", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const sessions = await storage.getUserSessions(userId);
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sessions" });
+    }
+  });
+
+  app.get("/api/sessions/:sessionId/messages", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const messages = await storage.getSessionMessages(sessionId);
+      res.json(messages);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // Updated message handling
+  app.post("/api/sessions/:sessionId/messages", async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const session = await storage.getSession(sessionId);
+
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      const user = await storage.getUser(session.userId);
+      if (!user || !user.settings) {
+        return res.status(400).json({ message: "User settings not configured" });
+      }
+
+      // Get recent messages for context
+      const recentMessages = await storage.getRecentMessages(sessionId, 5);
+
+      const teacherResponse = await getTeacherResponse(
+        req.body.content,
+        user.settings,
+        recentMessages.map(msg => ({
+          transcript: msg.content,
+          context: session.context
+        }))
+      );
+
+      // Save user's message
+      const userMessage = await storage.createMessage({
+        sessionId,
+        type: "user",
+        content: req.body.content,
+        corrections: teacherResponse.corrections
+      });
+
+      // Save teacher's response
+      const teacherMessage = await storage.createMessage({
+        sessionId,
+        type: "teacher",
+        content: teacherResponse.message
+      });
+
+      res.json({ userMessage, teacherMessage });
+    } catch (error) {
+      console.error('Message error:', error);
+      res.status(500).json({ message: "Failed to process message" });
+    }
+  });
+
   app.patch("/api/users/:id/progress", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -49,49 +132,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.post("/api/conversations", async (req, res) => {
-    try {
-      const user = await storage.getUser(req.body.userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      if (!user.settings) {
-        return res.status(400).json({ message: "User settings not configured" });
-      }
-
-      // Get the current context from the transcript or use existing context
-      const isContextStart = req.body.transcript.startsWith("START_CONTEXT:");
-      const context = isContextStart 
-        ? req.body.transcript.replace("START_CONTEXT:", "").trim()
-        : req.body.context || "";
-
-      // Get recent conversations for context
-      const recentConversations = await storage.getRecentConversations(
-        user.id,
-        context,
-        5 // Get last 5 messages for context
-      );
-
-      const teacherResponse = await getTeacherResponse(
-        req.body.transcript,
-        user.settings,
-        recentConversations
-      );
-
-      const conversation = await storage.createConversation({
-        userId: user.id,
-        transcript: req.body.transcript,
-        context: context,
-        corrections: teacherResponse.corrections
-      });
-
-      res.json({ conversation, teacherResponse });
-    } catch (error) {
-      console.error('Conversation error:', error);
-      res.status(500).json({ message: "Failed to process conversation" });
-    }
-  });
 
   app.get("/api/users/:id/conversations", async (req, res) => {
     try {

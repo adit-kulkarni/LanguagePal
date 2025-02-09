@@ -17,11 +17,6 @@ export interface TeacherResponse {
   };
 }
 
-interface ConversationHistory {
-  role: "user" | "assistant";
-  content: string;
-}
-
 interface ConversationContext {
   topics_discussed: string[];
   student_info: {
@@ -31,22 +26,43 @@ interface ConversationContext {
   };
 }
 
-function extractConversationContext(history: ConversationHistory[]): ConversationContext {
+function extractConversationContext(messages: { content: string; type: string }[]): ConversationContext {
   const context: ConversationContext = {
     topics_discussed: [],
     student_info: {}
   };
 
-  // Extract key information from conversation history
-  history.forEach(msg => {
-    if (msg.role === "user") {
-      // Look for hobby/interest related keywords
-      if (msg.content.toLowerCase().includes("like to") || 
-          msg.content.toLowerCase().includes("enjoy") ||
-          msg.content.toLowerCase().includes("hobby")) {
+  messages.forEach(msg => {
+    if (msg.type === "user") {
+      // Extract topics from user messages
+      const content = msg.content.toLowerCase();
+
+      // Track hobbies and interests
+      if (content.includes("like to") || content.includes("enjoy") || content.includes("hobby")) {
         context.topics_discussed.push("interests/hobbies");
+        const words = content.split(/\s+/);
+        const index = Math.max(
+          words.indexOf("like"),
+          words.indexOf("enjoy"),
+          words.indexOf("hobby")
+        );
+        if (index !== -1 && index < words.length - 1) {
+          if (!context.student_info.hobbies) {
+            context.student_info.hobbies = [];
+          }
+          context.student_info.hobbies.push(words.slice(index + 1).join(" "));
+        }
       }
-      // Add other topic detection as needed
+
+      // Track food preferences
+      if (content.includes("food") || content.includes("eat") || content.includes("drink")) {
+        context.topics_discussed.push("food/dining");
+      }
+
+      // Track occupation
+      if (content.includes("work") || content.includes("job") || content.includes("study")) {
+        context.topics_discussed.push("occupation");
+      }
     }
   });
 
@@ -56,82 +72,59 @@ function extractConversationContext(history: ConversationHistory[]): Conversatio
 export async function getTeacherResponse(
   transcript: string,
   settings: { grammarTenses: string[]; vocabularySets: string[] },
-  previousConversations: { transcript: string; context: string }[] = []
+  previousMessages: { type: string; content: string }[] = []
 ): Promise<TeacherResponse> {
   const isContextStart = transcript.startsWith("START_CONTEXT:");
   const context = isContextStart ? transcript.replace("START_CONTEXT:", "").trim() : "";
 
-  // Convert previous conversations to chat format
-  const conversationHistory: ConversationHistory[] = previousConversations.map((conv, index) => ({
-    role: index % 2 === 0 ? "user" as const : "assistant" as const,
-    content: conv.transcript
-  }));
+  // Extract and analyze conversation context from this session only
+  const conversationContext = extractConversationContext(previousMessages);
 
-  // Extract and analyze conversation context
-  const conversationContext = extractConversationContext(conversationHistory);
-
-  const systemPrompt = transcript.startsWith("Generate EXACTLY 2")
-    ? {
-        role: "system" as const,
-        content: "You are a Spanish language expert. Return ONLY a JSON array containing exactly 2 Spanish example sentences. No other text."
-      }
-    : {
-        role: "system" as const,
-        content: `You are Profesora Ana, a warm and engaging Colombian Spanish teacher. Your ABSOLUTE TOP PRIORITY is to ONLY use the following tenses: ${settings.grammarTenses.join(", ")}. Never use any other tenses.
-
-${isContextStart
-          ? `\n\nThe student wants to practice Spanish in the context of: ${context}. Start an engaging conversation that feels natural for this context, while STRICTLY using only these tenses: ${settings.grammarTenses.join(", ")}.`
-          : `\n\nAs you chat with the student, remember these STRICT RULES:`}
+  const systemPrompt = {
+    role: "system" as const,
+    content: `You are Profesora Ana, a warm and engaging Colombian Spanish teacher. Your responses must follow these STRICT rules:
 
 1. CONVERSATION MEMORY (HIGHEST PRIORITY):
-   - Review the entire conversation history before responding
-   - NEVER ask questions about topics already discussed
-   - If student mentioned hobbies/interests before, reference them instead of asking again
-   - Build upon previous responses and show you remember details
-   - When asking follow-up questions, explicitly reference previous answers
+   - This is a focused conversation about: ${context || "general Spanish practice"}
+   - Topics already discussed: ${conversationContext.topics_discussed.join(", ")}
+   ${conversationContext.student_info.hobbies ? 
+     `- Student's known hobbies: ${conversationContext.student_info.hobbies.join(", ")}` : 
+     ""}
+   - NEVER ask about topics already covered
+   - Keep responses relevant to the current conversation context
+   - Show memory of previous details in this conversation
 
 2. TENSE USAGE (HIGHEST PRIORITY):
-   - You are ONLY allowed to use these tenses: ${settings.grammarTenses.join(", ")}
-   - NEVER use any other tenses in your responses
-   - If you need to express something that would normally use a different tense, you MUST rephrase it using the allowed tenses
-   - Double-check every response to ensure you're not using any unauthorized tenses
+   - ONLY use these tenses: ${settings.grammarTenses.join(", ")}
+   - NEVER use other tenses
+   - If needed, rephrase using allowed tenses
 
-3. Conversation Flow:
-   - Keep the conversation natural while ONLY using allowed tenses
-   - Provide corrections when students use non-allowed tenses
-   - Stay focused on the current context and previous messages
-   - Use vocabulary from these sets: ${settings.vocabularySets.join(", ")}
+3. VOCABULARY:
+   - Use words from these sets: ${settings.vocabularySets.join(", ")}
+   - Keep language appropriate for the student's level
 
-Previously Discussed Topics: ${conversationContext.topics_discussed.join(", ")}
-
-Remember:
-- NEVER repeat questions or ask about information already provided
-- NEVER use tenses that aren't in the allowed list: ${settings.grammarTenses.join(", ")}
-- Keep conversation history in mind and maintain context
-- Be warm and encouraging while enforcing tense rules
-- If you catch yourself about to use a non-allowed tense, rephrase using allowed tenses
-
-Always respond with a JSON object containing:
+Response must be a JSON object:
 {
   "message": "Your response using ONLY allowed tenses",
   "corrections": {
-    "mistakes": [
-      {
-        "original": "incorrect phrase or word",
-        "correction": "correct phrase using allowed tense",
-        "explanation": "Friendly explanation in English of why this tense isn't in their current practice set and how to express it using allowed tenses",
-        "explanation_es": "Explicación amable en español de por qué este tiempo verbal no está en su conjunto de práctica actual y cómo expresarlo usando los tiempos permitidos",
-        "type": "grammar | vocabulary | punctuation",
-        "ignored": false
-      }
-    ]
+    "mistakes": [{
+      "original": "incorrect phrase",
+      "correction": "correct version",
+      "explanation": "English explanation",
+      "explanation_es": "Spanish explanation",
+      "type": "grammar | vocabulary | punctuation",
+      "ignored": false
+    }]
   }
 }`
-      };
+  };
 
   const messages = [
     systemPrompt,
-    ...conversationHistory,
+    ...previousMessages.map(msg => ({
+      role: msg.type === "user" ? "user" as const : "assistant" as const,
+      content: msg.content
+    })),
     {
       role: "user" as const,
       content: transcript
@@ -149,21 +142,6 @@ Always respond with a JSON object containing:
     throw new Error("No response received from OpenAI");
   }
 
-  // For example sentences request, wrap the array in a TeacherResponse format
-  if (transcript.startsWith("Generate EXACTLY 2")) {
-    try {
-      const examples = JSON.parse(content);
-      return {
-        message: JSON.stringify(examples),
-        corrections: { mistakes: [] }
-      };
-    } catch (error) {
-      console.error("Failed to parse OpenAI response:", error);
-      throw error;
-    }
-  }
-
-  // For normal conversation, parse the complete response
   const parsed = JSON.parse(content) as TeacherResponse;
 
   // Ensure corrections object exists with mistakes array
