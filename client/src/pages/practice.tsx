@@ -213,8 +213,8 @@ export default function Practice() {
       {/* Teacher Section with Context Starters */}
       <div className="w-1/2 flex flex-col items-center bg-accent/10 py-8">
         <div className="mb-8 flex flex-col items-center">
-          <TeacherAvatar 
-            className="scale-125 mb-2" 
+          <TeacherAvatar
+            className="scale-125 mb-2"
             speaking={isSpeaking}
             intensity={speakingIntensity}
           />
@@ -281,7 +281,8 @@ export default function Practice() {
                     )}
                   </div>
 
-                  {message.corrections && message.corrections.length > 0 && (
+                  {/* Only show corrections for user messages */}
+                  {message.type === "user" && message.corrections && message.corrections.length > 0 && (
                     <div className="mt-2 space-y-2">
                       <div className="flex items-center gap-2 text-yellow-600">
                         <AlertCircle className="h-4 w-4" />
