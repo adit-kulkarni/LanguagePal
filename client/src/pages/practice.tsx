@@ -75,7 +75,7 @@ export default function Practice() {
         }
       }));
 
-      // Show toast with examples
+      // Show toast with examples or error message
       if (data.examples && data.examples.length > 0) {
         toast({
           title: `Examples for "${word}"`,
@@ -93,7 +93,7 @@ export default function Practice() {
       } else {
         toast({
           title: "No examples found",
-          description: `Could not find example sentences for "${word}"`,
+          description: data.message || `Could not find example sentences for "${word}"`,
           variant: "destructive",
         });
       }
@@ -109,7 +109,7 @@ export default function Practice() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to get example sentences"
+        description: "Failed to get example sentences. Please try again."
       });
     }
   };

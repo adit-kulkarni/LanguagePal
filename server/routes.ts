@@ -104,16 +104,22 @@ export function registerRoutes(app: Express): Server {
       const word = z.string().parse(req.body.word);
 
       const response = await getTeacherResponse(
-        `Return a JSON array of EXACTLY 2 example sentences in Spanish using the word "${word}". 
-         Each sentence should be simple and SHORT (max 6 words).
-         Must be in this EXACT format, no other text: ["Example 1.", "Example 2."]`,
+        `Create a JSON array with EXACTLY 2 simple example sentences in Spanish that demonstrate the usage of "${word}". 
+         Each sentence must:
+         - Use the word "${word}" exactly as provided
+         - Be 4-8 words long
+         - End with a period
+         - Be grammatically correct Spanish
+
+         Return ONLY a JSON array in this exact format: ["Example 1.", "Example 2."]
+         Do not include any other text or explanation.`,
         { grammarTenses: [], vocabularySets: [] }
       );
 
       try {
         // First try to parse the entire response as JSON
         const examples = JSON.parse(response.message);
-        if (Array.isArray(examples)) {
+        if (Array.isArray(examples) && examples.length === 2) {
           return res.json({ examples });
         }
       } catch {
@@ -122,7 +128,7 @@ export function registerRoutes(app: Express): Server {
           const jsonMatch = response.message.match(/\[(.*?)\]/s);
           if (jsonMatch) {
             const examples = JSON.parse(jsonMatch[0]);
-            if (Array.isArray(examples)) {
+            if (Array.isArray(examples) && examples.length > 0) {
               return res.json({ examples });
             }
           }
@@ -132,10 +138,16 @@ export function registerRoutes(app: Express): Server {
       }
 
       // If all parsing attempts fail, return empty array
-      res.json({ examples: [] });
+      res.json({ 
+        examples: [], 
+        message: `No example sentences available for "${word}". Please try another word.` 
+      });
     } catch (error) {
       console.error('Examples error:', error);
-      res.json({ examples: [] });
+      res.json({ 
+        examples: [], 
+        message: "Failed to generate example sentences. Please try again." 
+      });
     }
   });
 
