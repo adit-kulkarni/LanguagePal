@@ -1,22 +1,29 @@
 import { z } from "zod";
 
-const dictionaryResponseSchema = z.array(z.object({
-  word: z.string(),
-  meanings: z.array(z.object({
-    partOfSpeech: z.string(),
-    definitions: z.array(z.object({
-      definition: z.string(),
-      example: z.string().optional(),
-    })),
-    synonyms: z.array(z.string()).optional(),
-    translations: z.array(z.object({
-      text: z.string()
-    })).optional(),
-  })),
-  phonetics: z.array(z.object({
-    text: z.string().optional()
-  })).optional(),
-})).min(1);
+const translationResponseSchema = z.object({
+  responseData: z.object({
+    translatedText: z.string(),
+    match: z.number()
+  }),
+  responseStatus: z.number(),
+  responderId: z.string().optional(),
+  matches: z.array(
+    z.object({
+      id: z.string(),
+      segment: z.string(),
+      translation: z.string(),
+      quality: z.string(),
+      reference: z.string().optional(),
+      usage_count: z.number(),
+      subject: z.string().optional(),
+      created_by: z.string().optional(),
+      last_updated_by: z.string().optional(),
+      create_date: z.string().optional(),
+      last_update_date: z.string().optional(),
+      match: z.number()
+    })
+  ).optional()
+});
 
 export async function translateWord(word: string): Promise<{ 
   translation: string;
@@ -24,29 +31,29 @@ export async function translateWord(word: string): Promise<{
   phonetic?: string;
 }> {
   try {
-    // Use the Free Dictionary API with Spanish language code
+    // Use MyMemory Translation API to translate from Spanish (es) to English (en)
     const response = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/es/${encodeURIComponent(word.toLowerCase().trim())}`
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word.toLowerCase().trim())}&langpair=es|en`
     );
 
     if (!response.ok) {
-      throw new Error('Word not found in dictionary');
+      throw new Error('Translation service unavailable');
     }
 
     const data = await response.json();
-    const parsed = dictionaryResponseSchema.parse(data);
-    const entry = parsed[0];
+    const parsed = translationResponseSchema.parse(data);
 
     // Get the primary translation
-    const translation = entry.meanings[0]?.definitions[0]?.definition || word;
+    const translation = parsed.responseData.translatedText;
 
-    // Get phonetic if available
-    const phonetic = entry.phonetics?.[0]?.text;
+    // If the translation is the same as the input word, it might not be a valid Spanish word
+    if (translation.toLowerCase() === word.toLowerCase()) {
+      throw new Error('Word not found in dictionary');
+    }
 
-    // Get examples if available (we'll keep examples separate via OpenAI)
     return {
       translation,
-      phonetic,
+      // Examples will be handled separately by the OpenAI endpoint
     };
 
   } catch (error) {
