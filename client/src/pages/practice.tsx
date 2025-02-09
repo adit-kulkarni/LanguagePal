@@ -17,6 +17,12 @@ import { useState } from "react";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface Message {
   type: "user" | "teacher";
@@ -29,6 +35,7 @@ interface Message {
     type: "punctuation" | "grammar" | "vocabulary";
     ignored?: boolean;
   }>;
+  translation?: string; // Added translation property
 }
 
 interface TranslationCache {
@@ -324,16 +331,31 @@ export default function Practice() {
                         ))}
                       </div>
                       {message.type === "teacher" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => speak(message.content)}
-                          className="ml-2"
-                        >
-                          <Volume2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => speak(message.content)}
+                          >
+                            <Volume2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       )}
                     </div>
+
+                    {message.type === "teacher" && message.translation && (
+                      <Collapsible className="mt-2">
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="p-0 h-6 text-muted-foreground hover:text-foreground">
+                            <ChevronDown className="h-4 w-4 mr-1" />
+                            Show translation
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-2 text-sm text-muted-foreground">
+                          {message.translation}
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
 
                     {message.type === "user" && message.corrections && message.corrections.length > 0 && (
                       <div className="mt-2 space-y-2">

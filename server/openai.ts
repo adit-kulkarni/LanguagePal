@@ -5,6 +5,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface TeacherResponse {
   message: string;
+  translation: string;
   corrections: {
     mistakes: Array<{
       original: string;
@@ -106,6 +107,7 @@ export async function getTeacherResponse(
 Response must be a JSON object:
 {
   "message": "Your response using ONLY allowed tenses",
+  "translation": "English translation of your response",
   "corrections": {
     "mistakes": [{
       "original": "incorrect phrase",

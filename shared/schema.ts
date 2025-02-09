@@ -38,6 +38,7 @@ export const messages = pgTable("messages", {
   sessionId: integer("session_id").notNull(),
   type: text("type").notNull(), // "user" or "teacher"
   content: text("content").notNull(),
+  translation: text("translation"),
   createdAt: timestamp("created_at").defaultNow(),
   corrections: jsonb("corrections").$type<{
     mistakes: Array<{
