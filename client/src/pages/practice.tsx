@@ -12,13 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+
 
 interface Message {
   type: "user" | "teacher";
@@ -45,8 +39,6 @@ export default function Practice() {
     content: "¡Hola! I'm Profesora Ana. Let's practice Spanish together! How are you today?"
   }]);
   const [translations, setTranslations] = React.useState<TranslationCache>({});
-  const [selectedWord, setSelectedWord] = React.useState<string | null>(null);
-  const [loadingExamples, setLoadingExamples] = React.useState(false);
   const { toast } = useToast();
 
   // Speech synthesis setup
@@ -71,6 +63,16 @@ export default function Practice() {
                 Pronunciation: {translations[word].phonetic}
               </p>
             )}
+            {translations[word].examples && translations[word].examples.length > 0 && (
+              <div className="mt-2 border-t pt-2">
+                <p className="text-sm font-medium mb-1">Examples:</p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  {translations[word].examples.map((example, i) => (
+                    <li key={i}>{example}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         ),
       });
@@ -87,37 +89,46 @@ export default function Practice() {
     }));
 
     try {
-      const response = await apiRequest("POST", "/api/translate", { word });
-      const data = await response.json();
+      // Fetch translation
+      const translationResponse = await apiRequest("POST", "/api/translate", { word });
+      const translationData = await translationResponse.json();
 
-      // Store the translation
+      // Fetch examples
+      const examplesResponse = await apiRequest("POST", "/api/word-examples", { word });
+      const examplesData = await examplesResponse.json();
+
+      // Store the translation and examples
       setTranslations(prev => ({
         ...prev,
         [word]: { 
-          translation: data.translation,
-          examples: data.examples,
-          phonetic: data.phonetic,
+          translation: translationData.translation,
+          examples: examplesData.examples,
+          phonetic: translationData.phonetic,
           loading: false 
         }
       }));
 
+      // Show toast with translation and examples
       toast({
         title: word,
         description: (
           <div className="space-y-2">
-            <p>{data.translation}</p>
-            {data.phonetic && (
+            <p>{translationData.translation}</p>
+            {translationData.phonetic && (
               <p className="text-sm text-muted-foreground">
-                Pronunciation: {data.phonetic}
+                Pronunciation: {translationData.phonetic}
               </p>
             )}
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setSelectedWord(word)}
-            >
-              Show examples
-            </Button>
+            {examplesData.examples && examplesData.examples.length > 0 && (
+              <div className="mt-2 border-t pt-2">
+                <p className="text-sm font-medium mb-1">Examples:</p>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  {examplesData.examples.map((example: string, i: number) => (
+                    <li key={i}>{example}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         ),
       });
@@ -127,31 +138,11 @@ export default function Practice() {
         ...prev,
         [word]: { translation: 'Translation failed', loading: false }
       }));
-    }
-  };
-
-  const loadExamples = async (word: string) => {
-    setLoadingExamples(true);
-    try {
-      const response = await apiRequest("POST", "/api/word-examples", { word });
-      const data = await response.json();
-
-      setTranslations(prev => ({
-        ...prev,
-        [word]: { 
-          ...prev[word],
-          examples: data.examples
-        }
-      }));
-    } catch (error) {
-      console.error("Examples error:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to load examples"
+        description: "Failed to get translation and examples"
       });
-    } finally {
-      setLoadingExamples(false);
     }
   };
 
@@ -199,128 +190,90 @@ export default function Practice() {
   };
 
   return (
-    <>
-      <div className="flex h-screen">
-        {/* Teacher Section */}
-        <div className="w-1/2 flex items-center justify-center bg-accent/10">
-          <TeacherAvatar className="scale-150" />
-        </div>
-
-        {/* Chat Section */}
-        <div className="w-1/2 flex flex-col p-4">
-          <h1 className="text-2xl font-bold mb-4">Practice Spanish</h1>
-
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-4">
-              {messages.map((message, i) => (
-                <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div
-                        className="space-x-1"
-                        onClick={(e) => {
-                          const target = e.target as HTMLSpanElement;
-                          if (target.dataset.word) {
-                            handleWordClick(target.dataset.word);
-                          }
-                        }}
-                      >
-                        {message.content && message.content.split(' ').map((word, j) => (
-                          <Tooltip key={j}>
-                            <TooltipTrigger asChild>
-                              <span
-                                data-word={word}
-                                className="hover:text-primary hover:underline cursor-pointer relative"
-                              >
-                                {word}
-                                {translations[word]?.loading && (
-                                  <Loader2 className="w-3 h-3 animate-spin absolute -top-3 -right-3" />
-                                )}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {translations[word]?.loading
-                                ? "Translating..."
-                                : translations[word]?.translation
-                                  ? translations[word].translation
-                                  : "Click to translate"}
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                      {message.type === "teacher" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => speak(message.content)}
-                          className="ml-2"
-                        >
-                          <Volume2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-
-                    {message.corrections && message.corrections.length > 0 && (
-                      <div className="mt-2 space-y-2">
-                        <div className="flex items-center gap-2 text-yellow-600">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="text-sm font-medium">Corrections:</span>
-                        </div>
-                        {message.corrections.map((correction, j) => (
-                          <div key={j} className="text-sm text-muted-foreground">
-                            <p><strong>{correction.original}</strong> → {correction.correction}</p>
-                            <p>{correction.explanation}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-
-          <div className="mt-4">
-            <SpeechInput onSubmit={handleSubmit} />
-          </div>
-        </div>
+    <div className="flex h-screen">
+      {/* Teacher Section */}
+      <div className="w-1/2 flex items-center justify-center bg-accent/10">
+        <TeacherAvatar className="scale-150" />
       </div>
 
-      <AlertDialog open={!!selectedWord} onOpenChange={() => setSelectedWord(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Examples for "{selectedWord}"
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-4">
-              {selectedWord && !translations[selectedWord]?.examples ? (
-                <div className="space-y-4">
-                  <p>Would you like to see example sentences using this word?</p>
-                  <Button 
-                    onClick={() => selectedWord && loadExamples(selectedWord)}
-                    disabled={loadingExamples}
-                  >
-                    {loadingExamples ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      'Get Examples'
+      {/* Chat Section */}
+      <div className="w-1/2 flex flex-col p-4">
+        <h1 className="text-2xl font-bold mb-4">Practice Spanish</h1>
+
+        <ScrollArea className="flex-1 pr-4">
+          <div className="space-y-4">
+            {messages.map((message, i) => (
+              <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div
+                      className="space-x-1"
+                      onClick={(e) => {
+                        const target = e.target as HTMLSpanElement;
+                        if (target.dataset.word) {
+                          handleWordClick(target.dataset.word);
+                        }
+                      }}
+                    >
+                      {message.content && message.content.split(' ').map((word, j) => (
+                        <Tooltip key={j}>
+                          <TooltipTrigger asChild>
+                            <span
+                              data-word={word}
+                              className="hover:text-primary hover:underline cursor-pointer relative"
+                            >
+                              {word}
+                              {translations[word]?.loading && (
+                                <Loader2 className="w-3 h-3 animate-spin absolute -top-3 -right-3" />
+                              )}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {translations[word]?.loading
+                              ? "Translating..."
+                              : translations[word]?.translation
+                                ? translations[word].translation
+                                : "Click to translate"}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                    {message.type === "teacher" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => speak(message.content)}
+                        className="ml-2"
+                      >
+                        <Volume2 className="h-4 w-4" />
+                      </Button>
                     )}
-                  </Button>
-                </div>
-              ) : (
-                <ul className="list-disc pl-4 space-y-2">
-                  {selectedWord && translations[selectedWord]?.examples?.map((example, i) => (
-                    <li key={i}>{example}</li>
-                  ))}
-                </ul>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+                  </div>
+
+                  {message.corrections && message.corrections.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-2 text-yellow-600">
+                        <AlertCircle className="h-4 w-4" />
+                        <span className="text-sm font-medium">Corrections:</span>
+                      </div>
+                      {message.corrections.map((correction, j) => (
+                        <div key={j} className="text-sm text-muted-foreground">
+                          <p><strong>{correction.original}</strong> → {correction.correction}</p>
+                          <p>{correction.explanation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </ScrollArea>
+
+        <div className="mt-4">
+          <SpeechInput onSubmit={handleSubmit} />
+        </div>
+      </div>
+    </div>
   );
 }

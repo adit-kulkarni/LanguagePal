@@ -104,21 +104,29 @@ export function registerRoutes(app: Express): Server {
       const word = z.string().parse(req.body.word);
 
       const response = await getTeacherResponse(
-        `Generate 2-3 example sentences using the Spanish word "${word}". Return ONLY a JSON array of strings with the examples, without any other text or explanation. For example: ["El profesor enseña español.", "Me gusta estudiar español."]`,
+        `Return a JSON array containing exactly 2 simple example sentences in Spanish using the word "${word}". Each sentence should be 5-8 words long. Format: ["Sentence 1.", "Sentence 2."]`,
         { grammarTenses: [], vocabularySets: [] }
       );
 
-      // Extract just the array part if OpenAI includes any extra text
-      const jsonMatch = response.message.match(/\[.*\]/);
-      if (!jsonMatch) {
-        throw new Error('Invalid response format');
+      try {
+        const examples = JSON.parse(response.message);
+        if (Array.isArray(examples)) {
+          return res.json({ examples });
+        }
+      } catch {
+        const jsonMatch = response.message.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          const examples = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(examples)) {
+            return res.json({ examples });
+          }
+        }
       }
 
-      const examples = JSON.parse(jsonMatch[0]);
-      res.json({ examples });
+      res.json({ examples: [] });
     } catch (error) {
       console.error('Examples error:', error);
-      res.status(500).json({ message: "Failed to get word examples" });
+      res.json({ examples: [] });
     }
   });
 
