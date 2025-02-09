@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/tooltip";
 import { ConversationStarters } from "@/components/conversation-starters";
 import { useState } from "react";
+import { ConversationSidebar } from "@/components/conversation-sidebar";
+import { cn } from "@/lib/utils";
 
 interface Message {
   type: "user" | "teacher";
@@ -48,13 +50,11 @@ export default function Practice() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingIntensity, setSpeakingIntensity] = useState(0);
 
-  // Speech synthesis setup
   const speak = React.useCallback((text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-CO'; // Colombian Spanish
-    utterance.rate = 0.9; // Slightly slower for clarity
+    utterance.lang = 'es-CO';
+    utterance.rate = 0.9;
 
-    // Handle speech animation
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
       setIsSpeaking(false);
@@ -65,10 +65,8 @@ export default function Practice() {
       setSpeakingIntensity(0);
     };
 
-    // Handle boundary events for syllable-based animation
     utterance.onboundary = (event) => {
       if (event.name === 'word' || event.name === 'sentence') {
-        // Create a natural-feeling "bounce" effect
         setSpeakingIntensity(1);
         setTimeout(() => setSpeakingIntensity(0.5), 50);
         setTimeout(() => setSpeakingIntensity(0.2), 100);
@@ -79,15 +77,11 @@ export default function Practice() {
     window.speechSynthesis.speak(utterance);
   }, []);
 
-  // Keep the function but don't expose it in the UI for now
   const showExamples = async (word: string) => {
-    // Implementation remains but is currently unused
     console.log('Example sentence feature temporarily disabled');
   };
 
-  // Handle word click for translation
   const handleWordClick = async (word: string) => {
-    // If we already have the translation, show it
     if (translations[word] && !translations[word].loading) {
       toast({
         title: `Translation for "${word}"`,
@@ -99,10 +93,8 @@ export default function Practice() {
       return;
     }
 
-    // If it's already loading, do nothing
     if (translations[word]?.loading) return;
 
-    // Set loading state
     setTranslations(prev => ({
       ...prev,
       [word]: { translation: '', loading: true }
@@ -112,7 +104,6 @@ export default function Practice() {
       const response = await apiRequest("POST", "/api/translate", { word });
       const data = await response.json();
 
-      // Store the translation
       setTranslations(prev => ({
         ...prev,
         [word]: {
@@ -121,7 +112,6 @@ export default function Practice() {
         }
       }));
 
-      // Show toast with translation
       toast({
         title: `Translation for "${word}"`,
         description: (
@@ -143,13 +133,11 @@ export default function Practice() {
     }
   };
 
-  // Ensure user exists when component mounts
   React.useEffect(() => {
     async function initializeUser() {
       try {
         await apiRequest("POST", "/api/users", {});
       } catch (error) {
-        // Ignore error if user already exists
         if (!(error instanceof Error && error.message.includes("400"))) {
           console.error("Failed to initialize user:", error);
         }
@@ -200,19 +188,17 @@ export default function Practice() {
   const handleContextSelect = async (context: string) => {
     try {
       const response = await apiRequest("POST", "/api/conversations", {
-        userId: 1, // We should get this from a user context
+        userId: 1,
         transcript: `START_CONTEXT: ${context}`
       });
 
       const data = await response.json();
 
-      // Store the new session info
       setCurrentSession({
         id: data.session.id,
         context: data.session.context
       });
 
-      // Set the initial message
       setMessages([{
         type: "teacher",
         content: data.teacherResponse.message
@@ -226,124 +212,164 @@ export default function Practice() {
     }
   };
 
+  const handleSessionSelect = async (session: { id: number; context: string }) => {
+    try {
+      const messagesResponse = await apiRequest(
+        "GET",
+        `/api/sessions/${session.id}/messages`
+      );
+      const sessionMessages = await messagesResponse.json();
+
+      setCurrentSession(session);
+      setMessages(sessionMessages);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load conversation messages"
+      });
+    }
+  };
+
   return (
     <div className="flex h-screen">
-      {/* Teacher Section with Context Starters */}
-      <div className="w-1/2 flex flex-col items-center bg-accent/10 py-8">
-        <div className="mb-8 flex flex-col items-center">
-          <TeacherAvatar
-            className="scale-125 mb-2"
-            speaking={isSpeaking}
-            intensity={speakingIntensity}
-          />
-        </div>
-        <div className="w-full px-4">
-          <ConversationStarters onSelectContext={handleContextSelect} />
-        </div>
+      <div className="w-80 border-r h-full">
+        <ConversationSidebar
+          userId={1}
+          currentSessionId={currentSession?.id}
+          onSelectSession={handleSessionSelect}
+        />
       </div>
 
-      {/* Chat Section - remains mostly unchanged */}
-      <div className="w-1/2 flex flex-col p-4">
-        <h1 className="text-2xl font-bold mb-4">
-          Practice Spanish
-          {currentSession && (
-            <span className="text-sm font-normal text-muted-foreground ml-2">
-              Context: {currentSession.context}
-            </span>
-          )}
-        </h1>
-
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-4">
-            {messages.map((message, i) => (
-              <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div
-                      className="space-x-1 whitespace-pre-wrap break-words"
-                      onClick={(e) => {
-                        const target = e.target as HTMLSpanElement;
-                        if (target.dataset.word) {
-                          handleWordClick(target.dataset.word);
-                        }
-                      }}
-                    >
-                      {message.content && message.content.split(' ').map((word, j) => (
-                        <Tooltip key={j}>
-                          <TooltipTrigger asChild>
-                            <span
-                              data-word={word}
-                              className="hover:text-primary hover:underline cursor-pointer inline-block"
-                            >
-                              {word}
-                              {translations[word]?.loading && (
-                                <Loader2 className="w-3 h-3 animate-spin absolute -top-3 -right-3" />
-                              )}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            Click to translate
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                    </div>
-                    {message.type === "teacher" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => speak(message.content)}
-                        className="ml-2"
-                      >
-                        <Volume2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Only show corrections for user messages */}
-                  {message.type === "user" && message.corrections && message.corrections.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                      <div className="flex items-center gap-2 text-yellow-600">
-                        <AlertCircle className="h-4 w-4" />
-                        <span className="text-sm font-medium">Corrections:</span>
-                      </div>
-                      {message.corrections.map((correction, j) => (
-                        <div key={j} className="text-sm text-muted-foreground space-y-1">
-                          <div className="flex items-center gap-2">
-                            {correction.type === "punctuation" && (
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                correction.ignored
-                                  ? "bg-gray-100 text-gray-500"
-                                  : "bg-yellow-100 text-yellow-700"
-                              }`}>
-                                {correction.ignored ? "Ignored Punctuation" : "Punctuation"}
-                              </span>
-                            )}
-                            {correction.type === "grammar" && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                                Grammar
-                              </span>
-                            )}
-                            {correction.type === "vocabulary" && (
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                                Vocabulary
-                              </span>
-                            )}
-                          </div>
-                          <p><strong>{correction.original}</strong> → {correction.correction}</p>
-                          <p className="text-blue-600">{correction.explanation_es}</p>
-                          <p className="text-gray-600">{correction.explanation}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+      <div className="flex-1 grid grid-cols-2">
+        <div className="flex flex-col items-center bg-accent/10 py-8">
+          <div className="mb-8 flex flex-col items-center">
+            <TeacherAvatar
+              className="scale-125 mb-2"
+              speaking={isSpeaking}
+              intensity={speakingIntensity}
+            />
           </div>
-        </ScrollArea>
+          <div className="w-full px-4">
+            <ConversationStarters onSelectContext={handleContextSelect} />
+          </div>
+        </div>
 
-        <div className="mt-4">
-          <SpeechInput onSubmit={handleSubmit} />
+        <div className="flex flex-col p-4">
+          <h1 className="text-2xl font-bold mb-4">
+            Practice Spanish
+            {currentSession && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                Context: {currentSession.context}
+              </span>
+            )}
+          </h1>
+
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-4">
+              {messages.map((message, i) => (
+                <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div
+                        className="space-x-1 whitespace-pre-wrap break-words"
+                        onClick={(e) => {
+                          const target = e.target as HTMLSpanElement;
+                          if (target.dataset.word) {
+                            handleWordClick(target.dataset.word);
+                          }
+                        }}
+                      >
+                        {message.content && message.content.split(' ').map((word, j) => (
+                          <Tooltip key={j}>
+                            <TooltipTrigger asChild>
+                              <span
+                                data-word={word}
+                                className="hover:text-primary hover:underline cursor-pointer inline-block"
+                              >
+                                {word}
+                                {translations[word]?.loading && (
+                                  <Loader2 className="w-3 h-3 animate-spin absolute -top-3 -right-3" />
+                                )}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Click to translate
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                      {message.type === "teacher" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => speak(message.content)}
+                          className="ml-2"
+                        >
+                          <Volume2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {message.type === "user" && message.corrections && message.corrections.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        <div className="flex items-center gap-2 text-yellow-600">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Corrections:</span>
+                        </div>
+                        {message.corrections.map((correction, j) => (
+                          <div key={j} className="text-sm text-muted-foreground space-y-1">
+                            <div className="flex items-center gap-2">
+                              {correction.type === "punctuation" && (
+                                <span className={cn(
+                                  "text-xs px-2 py-0.5 rounded-full",
+                                  correction.ignored
+                                    ? "bg-gray-100 text-gray-500 border border-gray-200"
+                                    : "bg-yellow-100 text-yellow-700 border border-yellow-200 animate-pulse"
+                                )}>
+                                  {correction.ignored ? "Ignored Punctuation" : "Punctuation Fix"}
+                                </span>
+                              )}
+                              {correction.type === "grammar" && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                                  Grammar
+                                </span>
+                              )}
+                              {correction.type === "vocabulary" && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                                  Vocabulary
+                                </span>
+                              )}
+                            </div>
+                            <p>
+                              <span className={cn(
+                                "font-mono px-1 rounded",
+                                correction.type === "punctuation" && correction.ignored
+                                  ? "bg-gray-50 line-through text-gray-400"
+                                  : "bg-red-50"
+                              )}>
+                                {correction.original}
+                              </span>
+                              {" → "}
+                              <span className="font-mono px-1 rounded bg-green-50 text-green-700">
+                                {correction.correction}
+                              </span>
+                            </p>
+                            <p className="text-blue-600">{correction.explanation_es}</p>
+                            <p className="text-gray-600">{correction.explanation}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+
+          <div className="mt-4">
+            <SpeechInput onSubmit={handleSubmit} />
+          </div>
         </div>
       </div>
     </div>
