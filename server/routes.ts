@@ -87,6 +87,22 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  app.post("/api/translate", async (req, res) => {
+    try {
+      const word = z.string().parse(req.body.word);
+
+      const response = await getTeacherResponse(
+        `Translate this Spanish word to English: "${word}"`,
+        { grammarTenses: [], vocabularySets: [] }
+      );
+
+      res.json({ translation: response.message });
+    } catch (error) {
+      console.error('Translation error:', error);
+      res.status(500).json({ message: "Failed to translate word" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
