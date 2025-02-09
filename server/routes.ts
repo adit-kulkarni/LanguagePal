@@ -2,7 +2,8 @@ import { Express } from "express";
 import { createServer, Server } from "http";
 import { storage } from "./storage";
 import { getTeacherResponse } from "./openai";
-import { insertUserSchema, type User } from "@shared/schema";
+import { insertUserSchema } from "@shared/schema";
+import { translateWord } from "./dictionary";
 import { z } from "zod";
 
 export function registerRoutes(app: Express): Server {
@@ -90,16 +91,27 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/translate", async (req, res) => {
     try {
       const word = z.string().parse(req.body.word);
-
-      const response = await getTeacherResponse(
-        `Translate this Spanish word to English: "${word}"`,
-        { grammarTenses: [], vocabularySets: [] }
-      );
-
-      res.json({ translation: response.message });
+      const translation = await translateWord(word);
+      res.json(translation);
     } catch (error) {
       console.error('Translation error:', error);
       res.status(500).json({ message: "Failed to translate word" });
+    }
+  });
+
+  app.post("/api/word-examples", async (req, res) => {
+    try {
+      const word = z.string().parse(req.body.word);
+
+      const response = await getTeacherResponse(
+        `Give me 2-3 example sentences using the Spanish word "${word}" in different contexts. Format the response as a JSON array of strings.`,
+        { grammarTenses: [], vocabularySets: [] }
+      );
+
+      res.json({ examples: JSON.parse(response.message) });
+    } catch (error) {
+      console.error('Examples error:', error);
+      res.status(500).json({ message: "Failed to get word examples" });
     }
   });
 
