@@ -16,30 +16,53 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      {/* Make /auth the default route */}
+      {/* Root redirects to auth */}
       <Route path="/">
         <Redirect to="/auth" />
       </Route>
 
-      <Route path="/auth">
-        <AuthPage />
-      </Route>
+      {/* Authentication page */}
+      <Route path="/auth" component={AuthPage} />
 
-      {/* All protected routes with navigation */}
-      <Route>
+      {/* Protected routes */}
+      <ProtectedRoute path="/home">
         <div className="md:grid md:grid-cols-[auto,1fr]">
           <Navigation />
           <main>
-            <Switch>
-              <ProtectedRoute path="/home" component={Home} />
-              <ProtectedRoute path="/practice" component={Practice} />
-              <ProtectedRoute path="/settings" component={Settings} />
-              <ProtectedRoute path="/progress" component={Progress} />
-              <Route component={NotFound} />
-            </Switch>
+            <Home />
           </main>
         </div>
-      </Route>
+      </ProtectedRoute>
+
+      <ProtectedRoute path="/practice">
+        <div className="md:grid md:grid-cols-[auto,1fr]">
+          <Navigation />
+          <main>
+            <Practice />
+          </main>
+        </div>
+      </ProtectedRoute>
+
+      <ProtectedRoute path="/settings">
+        <div className="md:grid md:grid-cols-[auto,1fr]">
+          <Navigation />
+          <main>
+            <Settings />
+          </main>
+        </div>
+      </ProtectedRoute>
+
+      <ProtectedRoute path="/progress">
+        <div className="md:grid md:grid-cols-[auto,1fr]">
+          <Navigation />
+          <main>
+            <Progress />
+          </main>
+        </div>
+      </ProtectedRoute>
+
+      {/* 404 page */}
+      <Route component={NotFound} />
     </Switch>
   );
 }
