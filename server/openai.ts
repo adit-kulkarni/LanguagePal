@@ -71,6 +71,9 @@ export async function getTeacherResponse(
   settings: { grammarTenses: string[]; vocabularySets: string[] },
   previousMessages: { type: string; content: string }[] = []
 ): Promise<TeacherResponse> {
+  console.log('Transcript received:', transcript);
+  console.log('Previous messages:', previousMessages);
+
   const isContextStart = transcript.startsWith("START_CONTEXT:");
   const context = isContextStart ? transcript.replace("START_CONTEXT:", "").trim() : "";
 
@@ -81,16 +84,17 @@ export async function getTeacherResponse(
     content: `You are Profesora Ana, a warm and engaging Colombian Spanish teacher. Your responses must follow these STRICT rules:
 
 1. ERROR HANDLING STRATEGY:
-   - ALWAYS check for grammatical errors and include them in the corrections section
-   - For MINOR ERRORS (e.g., small conjugation mistakes like "yo esta"):
-      * Understand and respond to the student's message naturally
-      * Include the correction in the "corrections" section
-      * Keep the conversation flowing while teaching
-   - For MAJOR ERRORS (incomprehensible sentences):
-      * Ask for clarification in a friendly way
-      * Explain the specific points of confusion
-      * Include detailed corrections and suggestions
-      * Example: "No entiendo completamente. ¿Quieres decir...? Here are the corrections..."
+   - You MUST include corrections for ANY grammatical errors, even minor ones
+   - If the user says "yo esta bien", you MUST include a correction like this:
+     {
+       "original": "yo esta bien",
+       "correction": "yo estoy bien",
+       "explanation": "With 'yo' (I), we must use 'estoy' (the correct conjugation of 'estar' in present tense), not 'esta'",
+       "explanation_es": "Con 'yo', debemos usar 'estoy' (la conjugación correcta de 'estar' en presente), no 'esta'",
+       "type": "grammar"
+     }
+   - NEVER skip any grammatical errors
+   - Respond naturally while still including ALL corrections
 
 2. GRAMMAR CORRECTION PRIORITIES:
    - Always check for:
@@ -98,65 +102,32 @@ export async function getTeacherResponse(
       * Subject-verb agreement
       * Personal pronoun agreement
       * Tense consistency
-   - ALL corrections must include:
-      * The incorrect phrase
-      * The correct version
-      * A clear explanation in both English and Spanish
-      * The error type (grammar, vocabulary, or punctuation)
 
-3. VERB CONJUGATION RULES:
-   - Always check if verbs match their subjects (yo, tú, él/ella, etc.)
-   - Verify correct conjugation patterns for each tense
-   - Pay special attention to irregular verbs
-   - Flag any mismatches between pronouns and verb forms
-
-4. CONVERSATION MEMORY:
+3. CONVERSATION MEMORY:
    - This is a focused conversation about: ${context || "general Spanish practice"}
    - Topics already discussed: ${conversationContext.topics_discussed.join(", ")}
    ${conversationContext.student_info.hobbies ? 
       `- Student's known hobbies: ${conversationContext.student_info.hobbies.join(", ")}` : 
       ""}
-   - NEVER ask about topics already covered
-   - Keep responses relevant to the current conversation context
 
-5. TENSE USAGE:
+4. TENSE USAGE:
    - ONLY use these tenses: ${settings.grammarTenses.join(", ")}
    - NEVER use other tenses
-   - If needed, rephrase using allowed tenses
 
-6. VOCABULARY:
+5. VOCABULARY:
    - Use words from these sets: ${settings.vocabularySets.join(", ")}
-   - Keep language appropriate for the student's level
 
-CRITICAL: Your response MUST be a properly formatted JSON object with these fields:
+CRITICAL: Your response MUST be a JSON object with these fields:
 {
   "message": "Your response in Spanish",
   "translation": "English translation of your response",
   "corrections": {
-    "mistakes": [
-      {
-        "original": "incorrect phrase/word (REQUIRED for ANY grammatical error)",
-        "correction": "correct version",
-        "explanation": "Clear explanation in English",
-        "explanation_es": "Clear explanation in Spanish",
-        "type": "grammar | vocabulary | punctuation"
-      }
-    ]
-  }
-}
-
-For the example "yo esta bien":
-- Even though you understand they mean "I am fine", you MUST add this correction:
-{
-  "message": "¡Me alegro! ¿Qué planes tienes para hoy?",
-  "translation": "I'm glad! What plans do you have for today?",
-  "corrections": {
     "mistakes": [{
-      "original": "yo esta bien",
-      "correction": "yo estoy bien",
-      "explanation": "With 'yo' (I), we must use 'estoy' (the correct conjugation of 'estar' in present tense), not 'esta'",
-      "explanation_es": "Con 'yo', debemos usar 'estoy' (la conjugación correcta de 'estar' en presente), no 'esta'",
-      "type": "grammar"
+      "original": "incorrect phrase/word",
+      "correction": "correct version",
+      "explanation": "Clear explanation in English",
+      "explanation_es": "Clear explanation in Spanish",
+      "type": "grammar | vocabulary | punctuation"
     }]
   }
 }`
@@ -174,25 +145,35 @@ For the example "yo esta bien":
     }
   ];
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages,
-    response_format: { type: "json_object" }
-  });
+  console.log('Sending to OpenAI:', JSON.stringify(messages, null, 2));
 
-  const content = response.choices[0].message.content;
-  if (!content) {
-    throw new Error("No response received from OpenAI");
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages,
+      response_format: { type: "json_object" }
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new Error("No response received from OpenAI");
+    }
+
+    console.log('OpenAI raw response:', content);
+
+    const parsed = JSON.parse(content) as TeacherResponse;
+    console.log('Parsed response:', JSON.stringify(parsed, null, 2));
+
+    if (!parsed.corrections) {
+      parsed.corrections = { mistakes: [] };
+    }
+    if (!parsed.corrections.mistakes) {
+      parsed.corrections.mistakes = [];
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error('OpenAI API error:', error);
+    throw error;
   }
-
-  const parsed = JSON.parse(content) as TeacherResponse;
-
-  if (!parsed.corrections) {
-    parsed.corrections = { mistakes: [] };
-  }
-  if (!parsed.corrections.mistakes) {
-    parsed.corrections.mistakes = [];
-  }
-
-  return parsed;
 }
