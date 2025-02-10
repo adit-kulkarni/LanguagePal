@@ -303,13 +303,13 @@ export default function Practice() {
                       </Collapsible>
                     )}
 
-                    {message.type === "user" && message.corrections && message.corrections.length > 0 && (
+                    {message.type === "user" && message.corrections?.mistakes && message.corrections.mistakes.length > 0 && (
                       <div className="mt-2 space-y-2">
                         <div className="flex items-center gap-2 text-yellow-600">
                           <AlertCircle className="h-4 w-4" />
                           <span className="text-sm font-medium">Corrections:</span>
                         </div>
-                        {message.corrections.map((correction, j) => (
+                        {message.corrections.mistakes.map((correction, j) => (
                           <div key={j} className="text-sm text-muted-foreground space-y-1">
                             <div className="flex items-center gap-2">
                               {correction.type === "punctuation" && (

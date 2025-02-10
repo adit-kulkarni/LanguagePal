@@ -218,6 +218,11 @@ export function registerRoutes(app: Express): Server {
                 translation: teacherResponse.translation
             });
 
+            console.log('Sending response with corrections:', {
+                userMessage,
+                teacherResponse
+            });
+
             res.json({ 
                 userMessage, 
                 teacherMessage, 
