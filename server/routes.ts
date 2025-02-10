@@ -31,11 +31,28 @@ function extractContextFromMessage(message: string): string {
 export function registerRoutes(app: Express): Server {
     app.post("/api/users", async (req, res) => {
         try {
-            const userData = insertUserSchema.parse(req.body);
+            // Create a user with default settings
+            const userData = {
+                username: `user_${Date.now()}`, // Generate a temporary username
+                password: "temp_password",      // This will be replaced by auth system
+                email: "temp@example.com",      // This will be replaced by auth system
+                settings: {
+                    grammarTenses: ["presente (present indicative)"],
+                    vocabularySets: ["100 most common nouns"]
+                },
+                progress: {
+                    grammar: 0,
+                    vocabulary: 0,
+                    speaking: 0,
+                    cefr: "A1"
+                }
+            };
+
             const user = await storage.createUser(userData);
             res.json(user);
         } catch (error) {
-            res.status(400).json({ message: "Invalid user data" });
+            console.error('User creation error:', error);
+            res.status(400).json({ message: "Invalid user data", error: String(error) });
         }
     });
 
