@@ -62,11 +62,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     try {
+      // Get the current URL for the redirect
+      const siteUrl = window.location.origin;
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: `${siteUrl}/auth/callback`,
+          data: {
+            username: email.split('@')[0], // Use email prefix as username
+          }
         }
       });
       if (error) throw error;

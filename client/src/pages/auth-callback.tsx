@@ -15,24 +15,32 @@ export default function AuthCallback() {
         const params = new URLSearchParams(window.location.hash.substring(1) || window.location.search);
         const error = params.get("error");
         const errorDescription = params.get("error_description");
+        const type = params.get("type"); // Can be "signup" or "recovery"
 
         if (error) {
           throw new Error(errorDescription || error);
         }
 
-        // Get the session from the URL
+        // Get the session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
 
         if (!session) {
-          throw new Error("No session found");
+          throw new Error("No session found. Please try signing in again.");
         }
 
-        // Show success message
-        toast({
-          title: "Authentication successful",
-          description: "You have been logged in successfully.",
-        });
+        // Show appropriate success message based on the type
+        if (type === "signup") {
+          toast({
+            title: "Email verified successfully",
+            description: "Your email has been verified. You can now use all features of the app.",
+          });
+        } else {
+          toast({
+            title: "Authentication successful",
+            description: "You have been logged in successfully.",
+          });
+        }
 
         // Redirect to home on success
         setLocation("/home");
