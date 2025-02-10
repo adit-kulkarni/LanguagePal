@@ -8,34 +8,46 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
-import { insertUserSchema } from "@shared/schema";
 import React from "react";
 import { Loader2 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 
-const authSchema = insertUserSchema.extend({
+const authSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+type AuthFormData = z.infer<typeof authSchema>;
+
 export default function AuthPage() {
   const [, setLocation] = useLocation();
-  const { user, isLoading, loginMutation, registerMutation } = useAuth();
+  const { user, isLoading, signIn, signUp, signInWithGoogle } = useAuth();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const loginForm = useForm({
-    resolver: zodResolver(authSchema.pick({ username: true, password: true })),
-    defaultValues: {
-      username: "",
-      password: "",
-    },
-  });
-
-  const registerForm = useForm({
+  const loginForm = useForm<AuthFormData>({
     resolver: zodResolver(authSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
     },
   });
+
+  const registerForm = useForm<AuthFormData>({
+    resolver: zodResolver(authSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  // Handle auth callback
+  React.useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = hashParams.get("access_token");
+    if (accessToken) {
+      setLocation("/home");
+    }
+  }, [setLocation]);
 
   // Only redirect when auth state is confirmed and user exists
   React.useEffect(() => {
@@ -80,19 +92,24 @@ export default function AuthPage() {
               <TabsContent value="login">
                 <Form {...loginForm}>
                   <form
-                    onSubmit={loginForm.handleSubmit((data) =>
-                      loginMutation.mutate(data)
-                    )}
+                    onSubmit={loginForm.handleSubmit(async (data) => {
+                      setIsSubmitting(true);
+                      try {
+                        await signIn(data.email, data.password);
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    })}
                     className="space-y-4"
                   >
                     <FormField
                       control={loginForm.control}
-                      name="username"
+                      name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Username</FormLabel>
+                          <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="username" {...field} />
+                            <Input type="email" placeholder="email@example.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -118,9 +135,9 @@ export default function AuthPage() {
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={loginMutation.isPending}
+                      disabled={isSubmitting}
                     >
-                      {loginMutation.isPending ? "Logging in..." : "Login"}
+                      {isSubmitting ? "Signing in..." : "Sign in"}
                     </Button>
                     <div className="relative my-4">
                       <div className="absolute inset-0 flex items-center">
@@ -134,7 +151,8 @@ export default function AuthPage() {
                       type="button"
                       variant="outline"
                       className="w-full"
-                      onClick={() => window.location.href = "/api/auth/google"}
+                      onClick={() => signInWithGoogle()}
+                      disabled={isSubmitting}
                     >
                       <SiGoogle className="mr-2 h-4 w-4" />
                       Sign in with Google
@@ -146,19 +164,24 @@ export default function AuthPage() {
               <TabsContent value="register">
                 <Form {...registerForm}>
                   <form
-                    onSubmit={registerForm.handleSubmit((data) =>
-                      registerMutation.mutate(data)
-                    )}
+                    onSubmit={registerForm.handleSubmit(async (data) => {
+                      setIsSubmitting(true);
+                      try {
+                        await signUp(data.email, data.password);
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    })}
                     className="space-y-4"
                   >
                     <FormField
                       control={registerForm.control}
-                      name="username"
+                      name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Username</FormLabel>
+                          <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="username" {...field} />
+                            <Input type="email" placeholder="email@example.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -184,9 +207,9 @@ export default function AuthPage() {
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={registerMutation.isPending}
+                      disabled={isSubmitting}
                     >
-                      {registerMutation.isPending ? "Creating account..." : "Create account"}
+                      {isSubmitting ? "Creating account..." : "Create account"}
                     </Button>
                     <div className="relative my-4">
                       <div className="absolute inset-0 flex items-center">
@@ -200,7 +223,8 @@ export default function AuthPage() {
                       type="button"
                       variant="outline"
                       className="w-full"
-                      onClick={() => window.location.href = "/api/auth/google"}
+                      onClick={() => signInWithGoogle()}
+                      disabled={isSubmitting}
                     >
                       <SiGoogle className="mr-2 h-4 w-4" />
                       Sign in with Google

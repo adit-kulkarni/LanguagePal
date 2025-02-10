@@ -2,6 +2,7 @@ import { Link, useRoute } from "wouter";
 import { cn } from "@/lib/utils";
 import { Home, MessageSquare, Settings, ChartBar, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import React from 'react';
 
 const navItems = [
   { href: "/home", icon: Home, label: "Home" },
@@ -11,7 +12,17 @@ const navItems = [
 ];
 
 export function Navigation() {
-  const { logoutMutation } = useAuth();
+  const { signOut } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await signOut();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-background border-t p-2 md:relative md:border-r md:h-screen md:flex md:flex-col">
@@ -37,20 +48,20 @@ export function Navigation() {
 
       {/* Logout button */}
       <button
-        onClick={() => logoutMutation.mutate()}
-        disabled={logoutMutation.isPending}
+        onClick={handleLogout}
+        disabled={isLoggingOut}
         className="hidden md:flex items-center gap-2 p-2 rounded-lg hover:bg-destructive hover:text-destructive-foreground mt-auto mx-2 mb-2"
       >
         <LogOut className="h-4 w-4" />
         <span className="hidden md:inline">
-          {logoutMutation.isPending ? "Logging out..." : "Logout"}
+          {isLoggingOut ? "Logging out..." : "Logout"}
         </span>
       </button>
 
       {/* Mobile logout button */}
       <button
-        onClick={() => logoutMutation.mutate()}
-        disabled={logoutMutation.isPending}
+        onClick={handleLogout}
+        disabled={isLoggingOut}
         className="md:hidden flex items-center justify-center p-2 rounded-lg hover:bg-destructive hover:text-destructive-foreground"
       >
         <LogOut className="h-4 w-4" />

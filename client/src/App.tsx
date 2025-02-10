@@ -7,6 +7,7 @@ import { Navigation } from "@/components/navigation";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 import AuthPage from "@/pages/auth-page";
+import AuthCallback from "@/pages/auth-callback";
 import Home from "@/pages/home";
 import Practice from "@/pages/practice";
 import Settings from "@/pages/settings";
@@ -21,8 +22,9 @@ function Router() {
         <Redirect to="/auth" />
       </Route>
 
-      {/* Authentication page */}
+      {/* Authentication routes */}
       <Route path="/auth" component={AuthPage} />
+      <Route path="/auth/callback" component={AuthCallback} />
 
       {/* Protected routes */}
       <ProtectedRoute path="/home">
