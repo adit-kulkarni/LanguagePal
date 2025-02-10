@@ -194,39 +194,40 @@ export function registerRoutes(app: Express): Server {
             // Get recent messages for context
             const recentMessages = await storage.getRecentMessages(sessionId, 5);
 
-            console.log('User message:', req.body.content);
+            console.log('Received user message:', req.body.content);
             const teacherResponse = await getTeacherResponse(
                 req.body.content,
                 user.settings,
                 recentMessages
             );
-            console.log('OpenAI Response:', teacherResponse);
+            console.log('OpenAI response with corrections:', teacherResponse);
 
             // Save user's message
             const userMessage = await storage.createMessage({
                 sessionId,
                 type: "user",
-                content: req.body.content,
-                corrections: { mistakes: teacherResponse.corrections.mistakes }
+                content: req.body.content
             });
 
-            // Save teacher's response
+            // Save teacher's response with corrections
             const teacherMessage = await storage.createMessage({
                 sessionId,
                 type: "teacher",
                 content: teacherResponse.message,
-                translation: teacherResponse.translation
+                translation: teacherResponse.translation,
+                corrections: teacherResponse.corrections // Make sure corrections are included
             });
 
             console.log('Sending response with corrections:', {
                 userMessage,
+                teacherMessage,
                 teacherResponse
             });
 
             res.json({ 
                 userMessage, 
-                teacherMessage, 
-                teacherResponse 
+                teacherMessage,
+                teacherResponse  // Include full teacher response with corrections
             });
         } catch (error) {
             console.error('Message error:', error);

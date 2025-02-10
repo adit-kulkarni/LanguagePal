@@ -119,7 +119,8 @@ export default function Practice() {
           {
             type: "teacher",
             content: data.teacherResponse.message,
-            translation: data.teacherResponse.translation
+            translation: data.teacherResponse.translation,
+            corrections: data.teacherResponse.corrections // Ensure corrections are passed
           }
         ]);
 
@@ -145,13 +146,15 @@ export default function Practice() {
       );
 
       const data = await response.json();
+      console.log('Received teacher response:', data);
 
       setMessages(prev => [
         ...prev,
         {
           type: "teacher",
           content: data.teacherResponse.message,
-          translation: data.teacherResponse.translation
+          translation: data.teacherResponse.translation,
+          corrections: data.teacherResponse.corrections // Ensure corrections are passed
         }
       ]);
 
@@ -318,11 +321,7 @@ export default function Practice() {
                                   "text-xs px-2 py-0.5 rounded-full",
                                   correction.type === "grammar" && "bg-red-100 text-red-700 border border-red-200",
                                   correction.type === "vocabulary" && "bg-blue-100 text-blue-700 border border-blue-200",
-                                  correction.type === "punctuation" && (
-                                    correction.ignored
-                                      ? "bg-gray-100 text-gray-500 border border-gray-200"
-                                      : "bg-yellow-100 text-yellow-700 border border-yellow-200"
-                                  )
+                                  correction.type === "punctuation" && "bg-yellow-100 text-yellow-700 border border-yellow-200"
                                 )}>
                                   {correction.type.charAt(0).toUpperCase() + correction.type.slice(1)}
                                 </span>
