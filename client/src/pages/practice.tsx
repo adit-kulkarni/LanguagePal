@@ -307,7 +307,11 @@ export default function Practice() {
                       </Collapsible>
                     )}
 
-                    {message.type === "teacher" && message.corrections?.mistakes && message.corrections.mistakes.length > 0 && (
+                    {message.type === "teacher" && 
+                     message.corrections?.mistakes && 
+                     message.corrections.mistakes.length > 0 && 
+                     i > 0 && 
+                     messages[i - 1].type === "user" && (
                       <div className="mt-2 p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
                         <div className="flex items-center gap-2 text-yellow-600 mb-2">
                           <AlertCircle className="h-4 w-4" />
