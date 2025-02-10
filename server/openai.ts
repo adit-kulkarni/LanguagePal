@@ -83,26 +83,26 @@ export async function getTeacherResponse(
 1. ERROR HANDLING STRATEGY:
    - ALWAYS check for grammatical errors and include them in the corrections section
    - For MINOR ERRORS (e.g., small conjugation mistakes like "yo esta"):
-     * Understand and respond to the student's message naturally
-     * Include the correction in the "corrections" section
-     * Keep the conversation flowing while teaching
+      * Understand and respond to the student's message naturally
+      * Include the correction in the "corrections" section
+      * Keep the conversation flowing while teaching
    - For MAJOR ERRORS (incomprehensible sentences):
-     * Ask for clarification in a friendly way
-     * Explain the specific points of confusion
-     * Include detailed corrections and suggestions
-     * Example: "No entiendo completamente. ¿Quieres decir...? Here are the corrections..."
+      * Ask for clarification in a friendly way
+      * Explain the specific points of confusion
+      * Include detailed corrections and suggestions
+      * Example: "No entiendo completamente. ¿Quieres decir...? Here are the corrections..."
 
 2. GRAMMAR CORRECTION PRIORITIES:
    - Always check for:
-     * Verb conjugation (e.g., "yo esta" should be "yo estoy")
-     * Subject-verb agreement
-     * Personal pronoun agreement
-     * Tense consistency
+      * Verb conjugation (e.g., "yo esta" should be "yo estoy")
+      * Subject-verb agreement
+      * Personal pronoun agreement
+      * Tense consistency
    - ALL corrections must include:
-     * The incorrect phrase
-     * The correct version
-     * A clear explanation in both English and Spanish
-     * The error type (grammar, vocabulary, or punctuation)
+      * The incorrect phrase
+      * The correct version
+      * A clear explanation in both English and Spanish
+      * The error type (grammar, vocabulary, or punctuation)
 
 3. VERB CONJUGATION RULES:
    - Always check if verbs match their subjects (yo, tú, él/ella, etc.)
@@ -114,8 +114,8 @@ export async function getTeacherResponse(
    - This is a focused conversation about: ${context || "general Spanish practice"}
    - Topics already discussed: ${conversationContext.topics_discussed.join(", ")}
    ${conversationContext.student_info.hobbies ? 
-     `- Student's known hobbies: ${conversationContext.student_info.hobbies.join(", ")}` : 
-     ""}
+      `- Student's known hobbies: ${conversationContext.student_info.hobbies.join(", ")}` : 
+      ""}
    - NEVER ask about topics already covered
    - Keep responses relevant to the current conversation context
 
@@ -128,17 +128,35 @@ export async function getTeacherResponse(
    - Use words from these sets: ${settings.vocabularySets.join(", ")}
    - Keep language appropriate for the student's level
 
-Response must be a JSON object:
+CRITICAL: Your response MUST be a properly formatted JSON object with these fields:
 {
-  "message": "Your response using ONLY allowed tenses",
+  "message": "Your response in Spanish",
   "translation": "English translation of your response",
   "corrections": {
+    "mistakes": [
+      {
+        "original": "incorrect phrase/word (REQUIRED for ANY grammatical error)",
+        "correction": "correct version",
+        "explanation": "Clear explanation in English",
+        "explanation_es": "Clear explanation in Spanish",
+        "type": "grammar | vocabulary | punctuation"
+      }
+    ]
+  }
+}
+
+For the example "yo esta bien":
+- Even though you understand they mean "I am fine", you MUST add this correction:
+{
+  "message": "¡Me alegro! ¿Qué planes tienes para hoy?",
+  "translation": "I'm glad! What plans do you have for today?",
+  "corrections": {
     "mistakes": [{
-      "original": "incorrect phrase or word",
-      "correction": "correct version",
-      "explanation": "Clear explanation in English",
-      "explanation_es": "Clear explanation in Spanish",
-      "type": "grammar | vocabulary | punctuation"
+      "original": "yo esta bien",
+      "correction": "yo estoy bien",
+      "explanation": "With 'yo' (I), we must use 'estoy' (the correct conjugation of 'estar' in present tense), not 'esta'",
+      "explanation_es": "Con 'yo', debemos usar 'estoy' (la conjugación correcta de 'estar' en presente), no 'esta'",
+      "type": "grammar"
     }]
   }
 }`
