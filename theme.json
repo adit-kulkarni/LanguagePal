@@ -4,7 +4,7 @@
   "appearance": "light",
   "radius": 0.75,
   "colors": {
-    "accent": "hsl(220, 100%, 50%)",
+    "accent": "hsl(240, 100%, 50%)",
     "destructive": "hsl(0, 100%, 45%)",
     "border": "hsl(220, 13%, 91%)",
     "input": "hsl(220, 13%, 91%)",
@@ -16,7 +16,7 @@
     "popover-foreground": "hsl(224, 71%, 4%)",
     "card": "hsl(0, 0%, 100%)",
     "card-foreground": "hsl(224, 71%, 4%)",
-    "accent-foreground": "hsl(220, 100%, 98%)",
+    "accent-foreground": "hsl(0, 0%, 100%)",
     "destructive-foreground": "hsl(0, 0%, 100%)",
     "ring": "hsl(224, 71%, 4%)"
   }

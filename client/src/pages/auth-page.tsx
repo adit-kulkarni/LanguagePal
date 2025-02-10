@@ -11,10 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { TeacherAvatar } from "@/components/teacher-avatar";
-import { Loader2, MessageSquare } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 
-// Define the diverse avatars array
+// Define diverse avatars array with unique characteristics
 const teacherAvatars = [
   { style: "modern", gender: "female", ethnicity: "latina" },
   { style: "classic", gender: "male", ethnicity: "african" },
@@ -35,35 +35,33 @@ const authSchema = z.object({
 
 type AuthFormData = z.infer<typeof authSchema>;
 
-const DemoMessage = ({ content, isTeacher }: { content: string; isTeacher: boolean }) => (
-  <div className={`flex items-start gap-3 ${isTeacher ? 'flex-row' : 'flex-row-reverse'}`}>
-    {isTeacher ? (
-      <TeacherAvatar className="w-8 h-8" />
-    ) : (
-      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-        <MessageSquare className="w-4 h-4" />
-      </div>
-    )}
-    <div className={`rounded-lg p-3 max-w-[80%] ${isTeacher ? 'bg-primary/10' : 'bg-primary/5'}`}>
-      {content}
-    </div>
-  </div>
-);
-
-// Falling avatar animation component
-const FallingAvatar = ({ delay, avatar, index }: { delay: number; avatar: typeof teacherAvatars[0]; index: number }) => (
+// Falling avatar component with staggered animation
+const FallingAvatar = ({ 
+  delay, 
+  column, 
+  avatar 
+}: { 
+  delay: number; 
+  column: number; 
+  avatar: typeof teacherAvatars[0];
+}) => (
   <div
     className="absolute animate-fall"
     style={{
-      left: `${(index * 10) % 100}%`,
+      left: `${column * 10}%`,
       animationDelay: `${delay}s`,
       top: '-50px',
-      opacity: 0.1,
+      opacity: 0.15,
       pointerEvents: 'none',
       zIndex: -1
     }}
   >
-    <TeacherAvatar className="w-16 h-16" />
+    <TeacherAvatar 
+      className="w-12 h-12"
+      style={avatar.style}
+      gender={avatar.gender}
+      ethnicity={avatar.ethnicity}
+    />
   </div>
 );
 
@@ -71,17 +69,33 @@ export default function AuthPage() {
   const [, setLocation] = useLocation();
   const { user, isLoading, signIn, signUp, signInWithGoogle } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [fallingAvatars, setFallingAvatars] = useState<Array<{ id: number; delay: number }>>([]);
+  const [fallingAvatars, setFallingAvatars] = useState<Array<{
+    id: number;
+    delay: number;
+    column: number;
+    avatar: typeof teacherAvatars[0];
+  }>>([]);
 
-  // Initialize falling avatars
+  // Initialize falling avatars in columns with staggered delays
   useEffect(() => {
-    const avatars = Array.from({ length: 20 }, (_, i) => ({
-      id: i,
-      delay: Math.random() * 20
-    }));
+    const columns = 10;
+    const avatarsPerColumn = 3;
+    const avatars = [];
+
+    for (let col = 0; col < columns; col++) {
+      for (let i = 0; i < avatarsPerColumn; i++) {
+        avatars.push({
+          id: col * avatarsPerColumn + i,
+          delay: col * 0.5 + i * 2, // Stagger both by column and within column
+          column: col,
+          avatar: teacherAvatars[col % teacherAvatars.length]
+        });
+      }
+    }
     setFallingAvatars(avatars);
   }, []);
 
+  // Login form setup
   const loginForm = useForm<AuthFormData>({
     resolver: zodResolver(authSchema),
     defaultValues: {
@@ -90,6 +104,7 @@ export default function AuthPage() {
     },
   });
 
+  // Register form setup
   const registerForm = useForm<AuthFormData>({
     resolver: zodResolver(authSchema),
     defaultValues: {
@@ -125,15 +140,15 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-background to-primary/5">
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-background via-primary/5 to-accent/5">
       {/* Falling Avatars Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {fallingAvatars.map((fa, i) => (
+        {fallingAvatars.map((fa) => (
           <FallingAvatar
             key={fa.id}
             delay={fa.delay}
-            avatar={teacherAvatars[i % teacherAvatars.length]}
-            index={i}
+            column={fa.column}
+            avatar={fa.avatar}
           />
         ))}
       </div>
@@ -141,19 +156,19 @@ export default function AuthPage() {
       <style jsx global>{`
         @keyframes fall {
           0% {
-            transform: translateY(-100px) rotate(0deg);
+            transform: translateY(-60px);
           }
           100% {
-            transform: translateY(100vh) rotate(360deg);
+            transform: translateY(100vh);
           }
         }
         .animate-fall {
-          animation: fall 15s linear infinite;
+          animation: fall 10s linear infinite;
         }
       `}</style>
 
       <div className="container relative mx-auto grid lg:grid-cols-2 gap-8 min-h-screen items-center py-8">
-        {/* Left column - Hero & Demo */}
+        {/* Left column - Hero */}
         <div className="space-y-8 order-2 lg:order-1">
           <div className="space-y-4">
             <h1 className="text-4xl font-bold tracking-tight text-foreground/90">
@@ -163,27 +178,6 @@ export default function AuthPage() {
               Interactive conversations, instant feedback, and personalized learning with your AI language tutor.
             </p>
           </div>
-
-          {/* Demo Conversation */}
-          <Card className="border-primary/20 bg-background/60 backdrop-blur">
-            <CardHeader>
-              <CardTitle className="text-lg">Example Conversation</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <DemoMessage
-                isTeacher={true}
-                content="¡Hola! ¿Cómo estás hoy?"
-              />
-              <DemoMessage
-                isTeacher={false}
-                content="Estoy bien, gracias. ¿Y tú?"
-              />
-              <DemoMessage
-                isTeacher={true}
-                content="¡Muy bien! ¿Quieres practicar el vocabulario de comida?"
-              />
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right column - Auth Forms */}
