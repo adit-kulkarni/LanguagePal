@@ -194,18 +194,20 @@ export function registerRoutes(app: Express): Server {
             // Get recent messages for context
             const recentMessages = await storage.getRecentMessages(sessionId, 5);
 
+            console.log('User message:', req.body.content);
             const teacherResponse = await getTeacherResponse(
                 req.body.content,
                 user.settings,
                 recentMessages
             );
+            console.log('OpenAI Response:', teacherResponse);
 
             // Save user's message
             const userMessage = await storage.createMessage({
                 sessionId,
                 type: "user",
                 content: req.body.content,
-                corrections: teacherResponse.corrections
+                corrections: teacherResponse.corrections.mistakes
             });
 
             // Save teacher's response
@@ -216,7 +218,11 @@ export function registerRoutes(app: Express): Server {
                 translation: teacherResponse.translation
             });
 
-            res.json({ userMessage, teacherMessage, teacherResponse });
+            res.json({ 
+                userMessage, 
+                teacherMessage, 
+                teacherResponse 
+            });
         } catch (error) {
             console.error('Message error:', error);
             res.status(500).json({ message: "Failed to process message" });
