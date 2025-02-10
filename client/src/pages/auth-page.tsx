@@ -181,21 +181,18 @@ export default function AuthPage() {
           {/* Demo Conversation */}
           <Card className="border-primary/20 bg-background/60 backdrop-blur">
             <CardContent className="p-4 space-y-4">
-              <div className="flex items-start gap-3">
-                <TeacherAvatar className="w-8 h-8" />
-                <div className="rounded-lg p-3 max-w-[80%] bg-primary/10">
+              <div className="flex items-start">
+                <div className="rounded-lg p-3 bg-primary/10 max-w-[80%]">
                   ¡Hola! ¿Cómo estás hoy?
                 </div>
               </div>
-              <div className="flex items-start gap-3 flex-row-reverse">
-                <div className="w-8 h-8 rounded-full bg-accent/10" />
-                <div className="rounded-lg p-3 max-w-[80%] bg-accent/5">
+              <div className="flex items-start justify-end">
+                <div className="rounded-lg p-3 bg-accent/5 max-w-[80%]">
                   Estoy bien, gracias. ¿Y tú?
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <TeacherAvatar className="w-8 h-8" />
-                <div className="rounded-lg p-3 max-w-[80%] bg-primary/10">
+              <div className="flex items-start">
+                <div className="rounded-lg p-3 bg-primary/10 max-w-[80%]">
                   ¡Muy bien! ¿Quieres practicar el vocabulario de comida?
                 </div>
               </div>
