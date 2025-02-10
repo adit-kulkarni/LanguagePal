@@ -48,7 +48,7 @@ const FallingAvatar = ({
   <div
     className="absolute animate-fall"
     style={{
-      left: `${column * 10}%`,
+      left: `${column * 25}%`,
       animationDelay: `${delay}s`,
       top: '-50px',
       opacity: 0.15,
@@ -78,7 +78,7 @@ export default function AuthPage() {
 
   // Initialize falling avatars in columns with staggered delays
   useEffect(() => {
-    const columns = 10;
+    const columns = 4; // Reduced to 4 columns
     const avatarsPerColumn = 3;
     const avatars = [];
 
@@ -95,7 +95,7 @@ export default function AuthPage() {
     setFallingAvatars(avatars);
   }, []);
 
-  // Login form setup
+  // Form and auth logic
   const loginForm = useForm<AuthFormData>({
     resolver: zodResolver(authSchema),
     defaultValues: {
@@ -104,7 +104,6 @@ export default function AuthPage() {
     },
   });
 
-  // Register form setup
   const registerForm = useForm<AuthFormData>({
     resolver: zodResolver(authSchema),
     defaultValues: {
@@ -168,7 +167,7 @@ export default function AuthPage() {
       `}</style>
 
       <div className="container relative mx-auto grid lg:grid-cols-2 gap-8 min-h-screen items-center py-8">
-        {/* Left column - Hero */}
+        {/* Left column - Hero & Demo */}
         <div className="space-y-8 order-2 lg:order-1">
           <div className="space-y-4">
             <h1 className="text-4xl font-bold tracking-tight text-foreground/90">
@@ -178,6 +177,30 @@ export default function AuthPage() {
               Interactive conversations, instant feedback, and personalized learning with your AI language tutor.
             </p>
           </div>
+
+          {/* Demo Conversation */}
+          <Card className="border-primary/20 bg-background/60 backdrop-blur">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-start gap-3">
+                <TeacherAvatar className="w-8 h-8" />
+                <div className="rounded-lg p-3 max-w-[80%] bg-primary/10">
+                  ¡Hola! ¿Cómo estás hoy?
+                </div>
+              </div>
+              <div className="flex items-start gap-3 flex-row-reverse">
+                <div className="w-8 h-8 rounded-full bg-accent/10" />
+                <div className="rounded-lg p-3 max-w-[80%] bg-accent/5">
+                  Estoy bien, gracias. ¿Y tú?
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <TeacherAvatar className="w-8 h-8" />
+                <div className="rounded-lg p-3 max-w-[80%] bg-primary/10">
+                  ¡Muy bien! ¿Quieres practicar el vocabulario de comida?
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right column - Auth Forms */}
