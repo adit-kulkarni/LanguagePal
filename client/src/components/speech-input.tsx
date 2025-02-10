@@ -11,7 +11,7 @@ interface SpeechInputProps {
 export function SpeechInput({ onSubmit }: SpeechInputProps) {
   const [text, setText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
-  
+
   const toggleRecording = () => {
     if (isRecording) {
       speechService.stop();
@@ -31,6 +31,13 @@ export function SpeechInput({ onSubmit }: SpeechInputProps) {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
@@ -44,6 +51,7 @@ export function SpeechInput({ onSubmit }: SpeechInputProps) {
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Your speech will appear here..."
           className="min-h-[100px]"
         />
