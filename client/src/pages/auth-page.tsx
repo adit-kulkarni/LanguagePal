@@ -27,25 +27,27 @@ const FallingAvatar = ({
   delay, 
   column,
   seed,
-  index
+  index,
+  offsetX
 }: { 
   delay: number; 
   column: number; 
   seed: string;
   index: number;
+  offsetX: number;
 }) => (
   <div
     className="absolute animate-fall"
     style={{
-      left: `${column * 25}%`,
+      left: `calc(${column * 25}% + ${offsetX}px)`,
       animationDelay: `${delay}s`,
-      top: `${index * -150}px`, // Start avatars at calculated intervals
+      top: `${index * -100}px`, // Reduced from -150px to -100px for smaller gaps
       opacity: 0.15,
       pointerEvents: 'none',
       zIndex: -1
     }}
   >
-    <Avatar className="w-12 h-12">
+    <Avatar className="w-24 h-24"> {/* Doubled from w-12 h-12 */}
       <AvatarImage src={`https://api.dicebear.com/7.x/personas/svg?seed=${seed}&backgroundColor=transparent`} />
       <AvatarFallback>👩‍🏫</AvatarFallback>
     </Avatar>
@@ -70,6 +72,7 @@ export default function AuthPage() {
     column: number;
     seed: string;
     index: number;
+    offsetX: number;
   }>>([]);
 
   // Initialize falling avatars in columns with staggered delays
@@ -84,10 +87,11 @@ export default function AuthPage() {
       for (let i = 0; i < avatarsPerColumn; i++) {
         avatars.push({
           id: col * avatarsPerColumn + i,
-          delay: (i * baseDelay) + (col * columnDelay), // Consistent timing
+          delay: (i * baseDelay) + (col * columnDelay) + Math.random(), // Add randomness to delay
           column: col,
           seed: teacherAvatars[Math.floor(Math.random() * teacherAvatars.length)],
-          index: i
+          index: i,
+          offsetX: Math.floor(Math.random() * 50) - 25 // Random offset between -25px and 25px
         });
       }
     }
@@ -148,6 +152,7 @@ export default function AuthPage() {
             column={fa.column}
             seed={fa.seed}
             index={fa.index}
+            offsetX={fa.offsetX}
           />
         ))}
       </div>
@@ -158,7 +163,7 @@ export default function AuthPage() {
             transform: translateY(0);
           }
           100% {
-            transform: translateY(calc(100vh + 150px));
+            transform: translateY(calc(100vh + 100px));
           }
         }
         .animate-fall {
