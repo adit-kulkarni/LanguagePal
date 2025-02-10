@@ -15,7 +15,7 @@ export function Navigation() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-background border-t p-2 md:relative md:border-r md:h-screen md:flex md:flex-col">
-      <div className="flex justify-around md:flex-col md:gap-2 md:flex-1">
+      <div className="flex justify-around md:flex-col md:gap-2">
         {navItems.map(({ href, icon: Icon, label }) => {
           const [isActive] = useRoute(href);
 
