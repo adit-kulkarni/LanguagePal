@@ -15,7 +15,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"; //
 import { Loader2 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 
-// Define diverse avatars array with different seeds
 const teacherAvatars = [
   "maria", // Colombian teacher
   "juan",  // Spanish instructor
@@ -26,19 +25,21 @@ const teacherAvatars = [
 
 const FallingAvatar = ({ 
   delay, 
-  column, 
-  seed 
+  column,
+  seed,
+  index
 }: { 
   delay: number; 
   column: number; 
   seed: string;
+  index: number;
 }) => (
   <div
     className="absolute animate-fall"
     style={{
       left: `${column * 25}%`,
       animationDelay: `${delay}s`,
-      top: '-50px',
+      top: `${index * -150}px`, // Start avatars at calculated intervals
       opacity: 0.15,
       pointerEvents: 'none',
       zIndex: -1
@@ -68,6 +69,7 @@ export default function AuthPage() {
     delay: number;
     column: number;
     seed: string;
+    index: number;
   }>>([]);
 
   // Initialize falling avatars in columns with staggered delays
@@ -75,14 +77,17 @@ export default function AuthPage() {
     const columns = 4;
     const avatarsPerColumn = 3;
     const avatars = [];
+    const baseDelay = 2; // Base delay between avatars
+    const columnDelay = 0.5; // Additional delay between columns
 
     for (let col = 0; col < columns; col++) {
       for (let i = 0; i < avatarsPerColumn; i++) {
         avatars.push({
           id: col * avatarsPerColumn + i,
-          delay: col * 0.5 + i * 2,
+          delay: (i * baseDelay) + (col * columnDelay), // Consistent timing
           column: col,
-          seed: teacherAvatars[Math.floor(Math.random() * teacherAvatars.length)]
+          seed: teacherAvatars[Math.floor(Math.random() * teacherAvatars.length)],
+          index: i
         });
       }
     }
@@ -142,6 +147,7 @@ export default function AuthPage() {
             delay={fa.delay}
             column={fa.column}
             seed={fa.seed}
+            index={fa.index}
           />
         ))}
       </div>
@@ -149,10 +155,10 @@ export default function AuthPage() {
       <style jsx global>{`
         @keyframes fall {
           0% {
-            transform: translateY(-60px);
+            transform: translateY(0);
           }
           100% {
-            transform: translateY(100vh);
+            transform: translateY(calc(100vh + 150px));
           }
         }
         .animate-fall {
