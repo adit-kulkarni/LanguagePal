@@ -335,6 +335,48 @@ export function registerRoutes(app: Express): Server {
         }
     });
 
+    app.get("/api/users/:userId/corrections-history", async (req, res) => {
+        try {
+            const userId = parseInt(req.params.userId);
+            const sessions = await storage.getUserSessions(userId);
+            const correctionsHistory = [];
+
+            // Gather corrections from all sessions
+            for (const session of sessions) {
+                const messages = await storage.getSessionMessages(session.id);
+                for (const message of messages) {
+                    if (
+                        message.type === "teacher" && 
+                        message.corrections?.mistakes && 
+                        message.corrections.mistakes.length > 0
+                    ) {
+                        correctionsHistory.push({
+                            sessionId: session.id,
+                            sessionContext: session.context,
+                            timestamp: message.createdAt,
+                            mistakes: message.corrections.mistakes,
+                            // Find the user message that prompted these corrections
+                            userMessage: messages.find(
+                                m => m.type === "user" && 
+                                new Date(m.createdAt) < new Date(message.createdAt)
+                            )?.content
+                        });
+                    }
+                }
+            }
+
+            // Sort by most recent first
+            correctionsHistory.sort((a, b) => 
+                new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            );
+
+            res.json(correctionsHistory);
+        } catch (error) {
+            console.error('Failed to fetch corrections history:', error);
+            res.status(500).json({ message: "Failed to fetch corrections history" });
+        }
+    });
+
     const httpServer = createServer(app);
     return httpServer;
 }
