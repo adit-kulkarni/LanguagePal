@@ -58,6 +58,7 @@ const FallingAvatar = ({
   >
     <TeacherAvatar 
       className="w-12 h-12"
+      hideText={true}
       style={avatar.style}
       gender={avatar.gender}
       ethnicity={avatar.ethnicity}
