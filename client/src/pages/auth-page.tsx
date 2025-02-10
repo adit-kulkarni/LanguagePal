@@ -1,3 +1,5 @@
+import * as React from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useLocation } from "wouter";
@@ -11,8 +13,20 @@ import { useAuth } from "@/hooks/use-auth";
 import { TeacherAvatar } from "@/components/teacher-avatar";
 import { Loader2, MessageSquare } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
-import * as React from "react";
-import { useState, useEffect } from "react";
+
+// Define the diverse avatars array
+const teacherAvatars = [
+  { style: "modern", gender: "female", ethnicity: "latina" },
+  { style: "classic", gender: "male", ethnicity: "african" },
+  { style: "casual", gender: "female", ethnicity: "asian" },
+  { style: "professional", gender: "male", ethnicity: "middleEastern" },
+  { style: "artistic", gender: "nonbinary", ethnicity: "mixed" },
+  { style: "sporty", gender: "female", ethnicity: "european" },
+  { style: "academic", gender: "male", ethnicity: "southAsian" },
+  { style: "trendy", gender: "female", ethnicity: "caribbean" },
+  { style: "traditional", gender: "male", ethnicity: "indigenous" },
+  { style: "contemporary", gender: "female", ethnicity: "pacific" }
+];
 
 const authSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -36,10 +50,37 @@ const DemoMessage = ({ content, isTeacher }: { content: string; isTeacher: boole
   </div>
 );
 
+// Falling avatar animation component
+const FallingAvatar = ({ delay, avatar, index }: { delay: number; avatar: typeof teacherAvatars[0]; index: number }) => (
+  <div
+    className="absolute animate-fall"
+    style={{
+      left: `${(index * 10) % 100}%`,
+      animationDelay: `${delay}s`,
+      top: '-50px',
+      opacity: 0.1,
+      pointerEvents: 'none',
+      zIndex: -1
+    }}
+  >
+    <TeacherAvatar className="w-16 h-16" />
+  </div>
+);
+
 export default function AuthPage() {
   const [, setLocation] = useLocation();
   const { user, isLoading, signIn, signUp, signInWithGoogle } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fallingAvatars, setFallingAvatars] = useState<Array<{ id: number; delay: number }>>([]);
+
+  // Initialize falling avatars
+  useEffect(() => {
+    const avatars = Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      delay: Math.random() * 20
+    }));
+    setFallingAvatars(avatars);
+  }, []);
 
   const loginForm = useForm<AuthFormData>({
     resolver: zodResolver(authSchema),
@@ -85,27 +126,33 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-background to-primary/5">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 opacity-5">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div
-              key={i}
-              className={`absolute w-24 h-24`}
-              style={{
-                transform: `rotate(${Math.random() * 360}deg)`,
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
-                opacity: 0.1 + Math.random() * 0.2,
-              }}
-            >
-              <TeacherAvatar />
-            </div>
-          ))}
-        </div>
+      {/* Falling Avatars Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {fallingAvatars.map((fa, i) => (
+          <FallingAvatar
+            key={fa.id}
+            delay={fa.delay}
+            avatar={teacherAvatars[i % teacherAvatars.length]}
+            index={i}
+          />
+        ))}
       </div>
 
-      <div className="container mx-auto grid lg:grid-cols-2 gap-8 min-h-screen items-center py-8">
+      <style jsx global>{`
+        @keyframes fall {
+          0% {
+            transform: translateY(-100px) rotate(0deg);
+          }
+          100% {
+            transform: translateY(100vh) rotate(360deg);
+          }
+        }
+        .animate-fall {
+          animation: fall 15s linear infinite;
+        }
+      `}</style>
+
+      <div className="container relative mx-auto grid lg:grid-cols-2 gap-8 min-h-screen items-center py-8">
         {/* Left column - Hero & Demo */}
         <div className="space-y-8 order-2 lg:order-1">
           <div className="space-y-4">
