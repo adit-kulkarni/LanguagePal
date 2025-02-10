@@ -35,10 +35,8 @@ function extractConversationContext(messages: { content: string; type: string }[
 
   messages.forEach(msg => {
     if (msg.type === "user") {
-      // Extract topics from user messages
       const content = msg.content.toLowerCase();
 
-      // Track hobbies and interests
       if (content.includes("like to") || content.includes("enjoy") || content.includes("hobby")) {
         context.topics_discussed.push("interests/hobbies");
         const words = content.split(/\s+/);
@@ -55,12 +53,10 @@ function extractConversationContext(messages: { content: string; type: string }[
         }
       }
 
-      // Track food preferences
       if (content.includes("food") || content.includes("eat") || content.includes("drink")) {
         context.topics_discussed.push("food/dining");
       }
 
-      // Track occupation
       if (content.includes("work") || content.includes("job") || content.includes("study")) {
         context.topics_discussed.push("occupation");
       }
@@ -78,33 +74,43 @@ export async function getTeacherResponse(
   const isContextStart = transcript.startsWith("START_CONTEXT:");
   const context = isContextStart ? transcript.replace("START_CONTEXT:", "").trim() : "";
 
-  // Extract and analyze conversation context from this session only
   const conversationContext = extractConversationContext(previousMessages);
 
   const systemPrompt = {
     role: "system" as const,
     content: `You are Profesora Ana, a warm and engaging Colombian Spanish teacher. Your responses must follow these STRICT rules:
 
-1. GRAMMAR CORRECTION (HIGHEST PRIORITY):
-   - IMMEDIATELY CHECK for ANY grammar errors, especially:
+1. ERROR HANDLING STRATEGY:
+   - ALWAYS check for grammatical errors and include them in the corrections section
+   - For MINOR ERRORS (e.g., small conjugation mistakes like "yo esta"):
+     * Understand and respond to the student's message naturally
+     * Include the correction in the "corrections" section
+     * Keep the conversation flowing while teaching
+   - For MAJOR ERRORS (incomprehensible sentences):
+     * Ask for clarification in a friendly way
+     * Explain the specific points of confusion
+     * Include detailed corrections and suggestions
+     * Example: "No entiendo completamente. ¿Quieres decir...? Here are the corrections..."
+
+2. GRAMMAR CORRECTION PRIORITIES:
+   - Always check for:
      * Verb conjugation (e.g., "yo esta" should be "yo estoy")
      * Subject-verb agreement
      * Personal pronoun agreement
      * Tense consistency
-   - NEVER ignore ANY grammatical errors, no matter how small
    - ALL corrections must include:
      * The incorrect phrase
      * The correct version
      * A clear explanation in both English and Spanish
      * The error type (grammar, vocabulary, or punctuation)
 
-2. VERB CONJUGATION RULES:
+3. VERB CONJUGATION RULES:
    - Always check if verbs match their subjects (yo, tú, él/ella, etc.)
    - Verify correct conjugation patterns for each tense
    - Pay special attention to irregular verbs
    - Flag any mismatches between pronouns and verb forms
 
-3. CONVERSATION MEMORY:
+4. CONVERSATION MEMORY:
    - This is a focused conversation about: ${context || "general Spanish practice"}
    - Topics already discussed: ${conversationContext.topics_discussed.join(", ")}
    ${conversationContext.student_info.hobbies ? 
@@ -113,12 +119,12 @@ export async function getTeacherResponse(
    - NEVER ask about topics already covered
    - Keep responses relevant to the current conversation context
 
-4. TENSE USAGE:
+5. TENSE USAGE:
    - ONLY use these tenses: ${settings.grammarTenses.join(", ")}
    - NEVER use other tenses
    - If needed, rephrase using allowed tenses
 
-5. VOCABULARY:
+6. VOCABULARY:
    - Use words from these sets: ${settings.vocabularySets.join(", ")}
    - Keep language appropriate for the student's level
 
@@ -163,7 +169,6 @@ Response must be a JSON object:
 
   const parsed = JSON.parse(content) as TeacherResponse;
 
-  // Ensure corrections object exists with mistakes array
   if (!parsed.corrections) {
     parsed.corrections = { mistakes: [] };
   }
