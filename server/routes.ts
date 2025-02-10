@@ -207,7 +207,7 @@ export function registerRoutes(app: Express): Server {
                 sessionId,
                 type: "user",
                 content: req.body.content,
-                corrections: teacherResponse.corrections.mistakes
+                corrections: { mistakes: teacherResponse.corrections.mistakes }
             });
 
             // Save teacher's response
