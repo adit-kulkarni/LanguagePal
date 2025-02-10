@@ -44,6 +44,22 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 
+interface Mistake {
+  type: "punctuation" | "grammar" | "vocabulary";
+  original: string;
+  correction: string;
+  explanation: string;
+  explanation_es: string;
+}
+
+interface CorrectionHistoryItem {
+  sessionId: number;
+  sessionContext: string;
+  timestamp: string;
+  mistakes: Mistake[];
+  userMessage?: string;
+}
+
 const settingsSchema = z.object({
   grammarTenses: z.array(z.string()).min(1, "Select at least one grammar tense"),
   vocabularySets: z.array(z.string()).min(1, "Select at least one vocabulary set")
@@ -62,7 +78,7 @@ export default function Settings() {
     }
   });
 
-  const { data: correctionsHistory } = useQuery({
+  const { data: correctionsHistory, isLoading } = useQuery<CorrectionHistoryItem[]>({
     queryKey: ["/api/users/1/corrections-history"],
   });
 
@@ -84,8 +100,9 @@ export default function Settings() {
 
   // Group corrections by date
   const groupedCorrections = React.useMemo(() => {
-    if (!correctionsHistory) return {};
-    return correctionsHistory.reduce((acc, item) => {
+    if (!correctionsHistory) return {} as Record<string, CorrectionHistoryItem[]>;
+
+    return correctionsHistory.reduce((acc: Record<string, CorrectionHistoryItem[]>, item) => {
       const date = format(new Date(item.timestamp), 'MMM d, yyyy');
       if (!acc[date]) acc[date] = [];
       acc[date].push(item);
@@ -220,55 +237,65 @@ export default function Settings() {
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[400px] pr-4">
-              <Accordion type="single" collapsible>
-                {Object.entries(groupedCorrections).map(([date, items]) => (
-                  <AccordionItem key={date} value={date}>
-                    <AccordionTrigger className="text-sm">
-                      {date} ({items.length} corrections)
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        {items.map((item, idx) => (
-                          <Card key={idx} className="bg-accent/5">
-                            <CardContent className="p-4 space-y-2">
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span>Context: {item.sessionContext}</span>
-                                <span>•</span>
-                                <span>{format(new Date(item.timestamp), 'h:mm a')}</span>
-                              </div>
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-muted-foreground">Loading corrections...</div>
+                </div>
+              ) : !correctionsHistory?.length ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-muted-foreground">No corrections yet. Start practicing to see your progress!</div>
+                </div>
+              ) : (
+                <Accordion type="single" collapsible>
+                  {Object.entries(groupedCorrections).map(([date, items]) => (
+                    <AccordionItem key={date} value={date}>
+                      <AccordionTrigger className="text-sm">
+                        {date} ({items.length} corrections)
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-4">
+                          {items.map((item, idx) => (
+                            <Card key={idx} className="bg-accent/5">
+                              <CardContent className="p-4 space-y-2">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <span>Context: {item.sessionContext}</span>
+                                  <span>•</span>
+                                  <span>{format(new Date(item.timestamp), 'h:mm a')}</span>
+                                </div>
 
-                              <div className="text-sm font-mono bg-muted/50 p-2 rounded">
-                                {item.userMessage}
-                              </div>
+                                <div className="text-sm font-mono bg-muted/50 p-2 rounded">
+                                  {item.userMessage}
+                                </div>
 
-                              <div className="space-y-2">
-                                {item.mistakes.map((mistake, mIdx) => (
-                                  <div key={mIdx} className="space-y-1">
-                                    <Badge variant="outline" className="text-xs">
-                                      {mistake.type.charAt(0).toUpperCase() + mistake.type.slice(1)}
-                                    </Badge>
-                                    <div className="flex items-center gap-2 text-sm font-mono">
-                                      <span className="bg-red-50 px-1.5 py-0.5 rounded">
-                                        {mistake.original}
-                                      </span>
-                                      <span className="text-gray-500">→</span>
-                                      <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">
-                                        {mistake.correction}
-                                      </span>
+                                <div className="space-y-2">
+                                  {item.mistakes.map((mistake, mIdx) => (
+                                    <div key={mIdx} className="space-y-1">
+                                      <Badge variant="outline" className="text-xs">
+                                        {mistake.type.charAt(0).toUpperCase() + mistake.type.slice(1)}
+                                      </Badge>
+                                      <div className="flex items-center gap-2 text-sm font-mono">
+                                        <span className="bg-red-50 px-1.5 py-0.5 rounded">
+                                          {mistake.original}
+                                        </span>
+                                        <span className="text-gray-500">→</span>
+                                        <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">
+                                          {mistake.correction}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm text-blue-600">{mistake.explanation_es}</p>
+                                      <p className="text-sm text-gray-600">{mistake.explanation}</p>
                                     </div>
-                                    <p className="text-sm text-blue-600">{mistake.explanation_es}</p>
-                                    <p className="text-sm text-gray-600">{mistake.explanation}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
             </ScrollArea>
           </CardContent>
         </Card>
