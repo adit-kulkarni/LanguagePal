@@ -10,40 +10,28 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
-import { TeacherAvatar } from "@/components/teacher-avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"; // Added import for Avatar components
+
 import { Loader2 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 
-// Define diverse avatars array with unique characteristics
+// Define diverse avatars array with different seeds
 const teacherAvatars = [
-  { style: "modern", gender: "female", ethnicity: "latina" },
-  { style: "classic", gender: "male", ethnicity: "african" },
-  { style: "casual", gender: "female", ethnicity: "asian" },
-  { style: "professional", gender: "male", ethnicity: "middleEastern" },
-  { style: "artistic", gender: "nonbinary", ethnicity: "mixed" },
-  { style: "sporty", gender: "female", ethnicity: "european" },
-  { style: "academic", gender: "male", ethnicity: "southAsian" },
-  { style: "trendy", gender: "female", ethnicity: "caribbean" },
-  { style: "traditional", gender: "male", ethnicity: "indigenous" },
-  { style: "contemporary", gender: "female", ethnicity: "pacific" }
+  "maria", // Colombian teacher
+  "juan",  // Spanish instructor
+  "sofia", // Latin American tutor
+  "carlos", // Mexican educator
+  "ana"    // Original teacher
 ];
 
-const authSchema = z.object({
-  email: z.string().email("Please enter a valid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-type AuthFormData = z.infer<typeof authSchema>;
-
-// Falling avatar component with staggered animation
 const FallingAvatar = ({ 
   delay, 
   column, 
-  avatar 
+  seed 
 }: { 
   delay: number; 
   column: number; 
-  avatar: typeof teacherAvatars[0];
+  seed: string;
 }) => (
   <div
     className="absolute animate-fall"
@@ -56,15 +44,20 @@ const FallingAvatar = ({
       zIndex: -1
     }}
   >
-    <TeacherAvatar 
-      className="w-12 h-12"
-      hideText={true}
-      style={avatar.style}
-      gender={avatar.gender}
-      ethnicity={avatar.ethnicity}
-    />
+    <Avatar className="w-12 h-12">
+      <AvatarImage src={`https://api.dicebear.com/7.x/personas/svg?seed=${seed}&backgroundColor=transparent`} />
+      <AvatarFallback>👩‍🏫</AvatarFallback>
+    </Avatar>
   </div>
 );
+
+const authSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+type AuthFormData = z.infer<typeof authSchema>;
+
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -74,12 +67,12 @@ export default function AuthPage() {
     id: number;
     delay: number;
     column: number;
-    avatar: typeof teacherAvatars[0];
+    seed: string;
   }>>([]);
 
   // Initialize falling avatars in columns with staggered delays
   useEffect(() => {
-    const columns = 4; // Reduced to 4 columns
+    const columns = 4;
     const avatarsPerColumn = 3;
     const avatars = [];
 
@@ -87,9 +80,9 @@ export default function AuthPage() {
       for (let i = 0; i < avatarsPerColumn; i++) {
         avatars.push({
           id: col * avatarsPerColumn + i,
-          delay: col * 0.5 + i * 2, // Stagger both by column and within column
+          delay: col * 0.5 + i * 2,
           column: col,
-          avatar: teacherAvatars[col % teacherAvatars.length]
+          seed: teacherAvatars[Math.floor(Math.random() * teacherAvatars.length)]
         });
       }
     }
@@ -148,7 +141,7 @@ export default function AuthPage() {
             key={fa.id}
             delay={fa.delay}
             column={fa.column}
-            avatar={fa.avatar}
+            seed={fa.seed}
           />
         ))}
       </div>
