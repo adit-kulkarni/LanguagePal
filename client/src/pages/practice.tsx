@@ -25,14 +25,16 @@ import {
 interface Message {
   type: "user" | "teacher";
   content: string;
-  corrections?: Array<{
-    original: string;
-    correction: string;
-    explanation: string;
-    explanation_es: string;
-    type: "punctuation" | "grammar" | "vocabulary";
-    ignored?: boolean;
-  }>;
+  corrections?: {
+    mistakes: Array<{
+      original: string;
+      correction: string;
+      explanation: string;
+      explanation_es: string;
+      type: "punctuation" | "grammar" | "vocabulary";
+      ignored?: boolean;
+    }>;
+  };
   translation?: string;
 }
 
@@ -99,7 +101,6 @@ export default function Practice() {
 
   const handleSubmit = async (text: string) => {
     if (!currentSession) {
-      // Create a new conversation if none exists
       try {
         const response = await apiRequest("POST", "/api/conversations", {
           userId: 1,
@@ -304,53 +305,42 @@ export default function Practice() {
                     )}
 
                     {message.type === "user" && message.corrections?.mistakes && message.corrections.mistakes.length > 0 && (
-                      <div className="mt-2 space-y-2">
-                        <div className="flex items-center gap-2 text-yellow-600">
+                      <div className="mt-2 p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
+                        <div className="flex items-center gap-2 text-yellow-600 mb-2">
                           <AlertCircle className="h-4 w-4" />
                           <span className="text-sm font-medium">Corrections:</span>
                         </div>
-                        {message.corrections.mistakes.map((correction, j) => (
-                          <div key={j} className="text-sm text-muted-foreground space-y-1">
-                            <div className="flex items-center gap-2">
-                              {correction.type === "punctuation" && (
+                        <div className="space-y-3">
+                          {message.corrections.mistakes.map((correction, j) => (
+                            <div key={j} className="text-sm space-y-1">
+                              <div className="flex items-center gap-2">
                                 <span className={cn(
                                   "text-xs px-2 py-0.5 rounded-full",
-                                  correction.ignored
-                                    ? "bg-gray-100 text-gray-500 border border-gray-200"
-                                    : "bg-yellow-100 text-yellow-700 border border-yellow-200 animate-pulse"
+                                  correction.type === "grammar" && "bg-red-100 text-red-700 border border-red-200",
+                                  correction.type === "vocabulary" && "bg-blue-100 text-blue-700 border border-blue-200",
+                                  correction.type === "punctuation" && (
+                                    correction.ignored
+                                      ? "bg-gray-100 text-gray-500 border border-gray-200"
+                                      : "bg-yellow-100 text-yellow-700 border border-yellow-200"
+                                  )
                                 )}>
-                                  {correction.ignored ? "Ignored Punctuation" : "Punctuation Fix"}
+                                  {correction.type.charAt(0).toUpperCase() + correction.type.slice(1)}
                                 </span>
-                              )}
-                              {correction.type === "grammar" && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
-                                  Grammar
+                              </div>
+                              <div className="flex items-center gap-2 font-mono">
+                                <span className="bg-red-50 px-1.5 py-0.5 rounded">
+                                  {correction.original}
                                 </span>
-                              )}
-                              {correction.type === "vocabulary" && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                                  Vocabulary
+                                <span className="text-gray-500">→</span>
+                                <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">
+                                  {correction.correction}
                                 </span>
-                              )}
+                              </div>
+                              <p className="text-blue-600">{correction.explanation_es}</p>
+                              <p className="text-gray-600">{correction.explanation}</p>
                             </div>
-                            <p>
-                              <span className={cn(
-                                "font-mono px-1 rounded",
-                                correction.type === "punctuation" && correction.ignored
-                                  ? "bg-gray-50 line-through text-gray-400"
-                                  : "bg-red-50"
-                              )}>
-                                {correction.original}
-                              </span>
-                              {" → "}
-                              <span className="font-mono px-1 rounded bg-green-50 text-green-700">
-                                {correction.correction}
-                              </span>
-                            </p>
-                            <p className="text-blue-600">{correction.explanation_es}</p>
-                            <p className="text-gray-600">{correction.explanation}</p>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     )}
                   </CardContent>
