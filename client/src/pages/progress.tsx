@@ -19,6 +19,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import React from "react";
 
+interface UserProgress {
+  cefr: string;
+  grammar: number;
+  vocabulary: number;
+  speaking: number;
+}
+
+interface User {
+  id: number;
+  email: string;
+  progress: UserProgress;
+}
+
 interface Mistake {
   type: "punctuation" | "grammar" | "vocabulary";
   original: string;
@@ -36,7 +49,7 @@ interface CorrectionHistoryItem {
 }
 
 export default function ProgressPage() {
-  const { data: user } = useQuery({
+  const { data: user, isLoading: isLoadingUser } = useQuery<User>({
     queryKey: ["/api/users/1"],
   });
 
@@ -56,6 +69,14 @@ export default function ProgressPage() {
     }, {});
   }, [correctionsHistory]);
 
+  if (isLoadingUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading progress data...</div>
+      </div>
+    );
+  }
+
   if (!user) return null;
 
   return (
@@ -66,7 +87,7 @@ export default function ProgressPage() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-yellow-500" />
-            <CardTitle>CEFR Level: {user.progress?.cefr}</CardTitle>
+            <CardTitle>CEFR Level: {user.progress.cefr || 'A1'}</CardTitle>
           </div>
           <CardDescription>
             Common European Framework of Reference for Languages
@@ -80,9 +101,9 @@ export default function ProgressPage() {
             <CardTitle>Grammar</CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress value={user.progress?.grammar} className="h-2" />
+            <Progress value={user.progress.grammar || 0} className="h-2" />
             <p className="mt-2 text-sm text-muted-foreground">
-              {user.progress?.grammar}% mastery
+              {user.progress.grammar || 0}% mastery
             </p>
           </CardContent>
         </Card>
@@ -92,9 +113,9 @@ export default function ProgressPage() {
             <CardTitle>Vocabulary</CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress value={user.progress?.vocabulary} className="h-2" />
+            <Progress value={user.progress.vocabulary || 0} className="h-2" />
             <p className="mt-2 text-sm text-muted-foreground">
-              {user.progress?.vocabulary}% mastery
+              {user.progress.vocabulary || 0}% mastery
             </p>
           </CardContent>
         </Card>
@@ -104,9 +125,9 @@ export default function ProgressPage() {
             <CardTitle>Speaking</CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress value={user.progress?.speaking} className="h-2" />
+            <Progress value={user.progress.speaking || 0} className="h-2" />
             <p className="mt-2 text-sm text-muted-foreground">
-              {user.progress?.speaking}% fluency
+              {user.progress.speaking || 0}% fluency
             </p>
           </CardContent>
         </Card>
