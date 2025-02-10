@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { insertUserSchema } from "@shared/schema";
 import React from "react";
 import { Loader2 } from "lucide-react";
+import { SiGoogle } from "react-icons/si";
 
 const authSchema = insertUserSchema.extend({
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -121,6 +122,23 @@ export default function AuthPage() {
                     >
                       {loginMutation.isPending ? "Logging in..." : "Login"}
                     </Button>
+                    <div className="relative my-4">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-border"></div>
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => window.location.href = "/api/auth/google"}
+                    >
+                      <SiGoogle className="mr-2 h-4 w-4" />
+                      Sign in with Google
+                    </Button>
                   </form>
                 </Form>
               </TabsContent>
@@ -170,6 +188,23 @@ export default function AuthPage() {
                     >
                       {registerMutation.isPending ? "Creating account..." : "Create account"}
                     </Button>
+                    <div className="relative my-4">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-border"></div>
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => window.location.href = "/api/auth/google"}
+                    >
+                      <SiGoogle className="mr-2 h-4 w-4" />
+                      Sign in with Google
+                    </Button>
                   </form>
                 </Form>
               </TabsContent>
@@ -185,7 +220,7 @@ export default function AuthPage() {
             Learn Spanish Naturally
           </h1>
           <p className="text-muted-foreground text-lg">
-            Engage in natural conversations with our AI-powered language learning platform. 
+            Engage in natural conversations with our AI-powered language learning platform.
             Practice speaking, improve your grammar, and expand your vocabulary - all in one place.
           </p>
           <div className="grid grid-cols-2 gap-4">

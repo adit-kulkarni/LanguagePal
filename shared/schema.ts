@@ -6,6 +6,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  googleId: text("google_id").unique(),
   settings: jsonb("settings").$type<{
     grammarTenses: string[];
     vocabularySets: string[];

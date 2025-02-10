@@ -1,5 +1,6 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Express } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -48,6 +49,7 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Local Strategy
   passport.use(
     new LocalStrategy(async (username: string, password: string, done: any) => {
       try {
@@ -62,6 +64,37 @@ export function setupAuth(app: Express) {
     }),
   );
 
+  // Google Strategy
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        callbackURL: "/api/auth/google/callback",
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          // Check if user exists with this Google ID
+          let user = await storage.getUserByGoogleId(profile.id);
+
+          if (!user) {
+            // Create new user if doesn't exist
+            user = await storage.createUser({
+              username: profile.emails![0].value,
+              googleId: profile.id,
+              // Generate a random password for Google auth users
+              password: await hashPassword(randomBytes(32).toString("hex")),
+            });
+          }
+
+          return done(null, user);
+        } catch (error) {
+          return done(error as Error);
+        }
+      }
+    )
+  );
+
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
     try {
@@ -72,6 +105,7 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Local auth routes
   app.post("/api/register", async (req, res, next) => {
     try {
       // Validate request body
@@ -119,6 +153,20 @@ export function setupAuth(app: Express) {
       });
     })(req, res, next);
   });
+
+  // Google auth routes
+  app.get("/api/auth/google",
+    passport.authenticate("google", {
+      scope: ["profile", "email"]
+    })
+  );
+
+  app.get("/api/auth/google/callback",
+    passport.authenticate("google", { failureRedirect: "/auth" }),
+    (req, res) => {
+      res.redirect("/home");
+    }
+  );
 
   app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {
