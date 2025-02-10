@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,16 +16,21 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
+      {/* Make /auth the default route */}
+      <Route path="/">
+        <Redirect to="/auth" />
+      </Route>
+
       <Route path="/auth">
         <AuthPage />
       </Route>
+
+      {/* All protected routes with navigation */}
       <Route>
-        {/* Default layout with navigation for authenticated routes */}
         <div className="md:grid md:grid-cols-[auto,1fr]">
           <Navigation />
           <main>
             <Switch>
-              <ProtectedRoute path="/" component={Home} />
               <ProtectedRoute path="/home" component={Home} />
               <ProtectedRoute path="/practice" component={Practice} />
               <ProtectedRoute path="/settings" component={Settings} />

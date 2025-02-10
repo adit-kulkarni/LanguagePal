@@ -36,12 +36,14 @@ export default function AuthPage() {
     },
   });
 
+  // Only redirect when auth state is confirmed and user exists
   React.useEffect(() => {
-    if (user && !isLoading) {
+    if (!isLoading && user) {
       setLocation("/home");
     }
   }, [user, isLoading, setLocation]);
 
+  // Show loading state while checking auth
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -50,10 +52,12 @@ export default function AuthPage() {
     );
   }
 
+  // Don't render anything during redirect
   if (user) {
     return null;
   }
 
+  // Render auth page when not authenticated
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Left column - Forms */}
