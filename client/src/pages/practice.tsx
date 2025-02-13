@@ -5,22 +5,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { AlertCircle, Volume2, Loader2, ChevronDown } from "lucide-react";
+import { AlertCircle, Volume2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { ConversationStarters } from "@/components/conversation-starters";
-import { ConversationSidebar } from "@/components/conversation-sidebar";
-import { cn } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { ConversationStarters } from "@/components/conversation-starters";
+import { ConversationSidebar } from "@/components/conversation-sidebar";
+import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Message {
   type: "user" | "teacher";
@@ -36,7 +31,7 @@ interface Message {
     }>;
   };
   translation?: string;
-  correctedMessage?: string; // Add this to store which message was corrected
+  correctedMessage?: string; 
 }
 
 interface TranslationCache {
@@ -59,6 +54,7 @@ export default function Practice() {
   const [isSpeaking, setIsSpeaking] = React.useState(false);
   const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
   const queryClient = useQueryClient();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
 
   const speak = React.useCallback((text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
@@ -122,7 +118,7 @@ export default function Practice() {
             content: data.teacherResponse.message,
             translation: data.teacherResponse.translation,
             corrections: data.teacherResponse.corrections,
-            correctedMessage: text // Store which message this correction belongs to
+            correctedMessage: text 
           }
         ]);
 
@@ -156,7 +152,7 @@ export default function Practice() {
           content: data.teacherResponse.message,
           translation: data.teacherResponse.translation,
           corrections: data.teacherResponse.corrections,
-          correctedMessage: text // Store which message this correction belongs to
+          correctedMessage: text 
         }
       ]);
 
@@ -230,17 +226,43 @@ export default function Practice() {
 
   return (
     <div className="h-screen overflow-hidden flex">
-      <div className="w-72 border-r h-full overflow-hidden flex flex-col">
-        <div className="p-4 border-b">
+      <div 
+        className={cn(
+          "border-r h-full overflow-hidden flex flex-col transition-all duration-300",
+          isSidebarCollapsed ? "w-12" : "w-72"
+        )}
+      >
+        <div className={cn(
+          "flex items-center transition-all duration-300",
+          isSidebarCollapsed ? "justify-center p-2" : "p-4 border-b"
+        )}>
+          {!isSidebarCollapsed && (
+            <Button
+              variant="outline"
+              className="w-full mr-2"
+              onClick={handleNewChat}
+            >
+              New Chat
+            </Button>
+          )}
           <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleNewChat}
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="flex-shrink-0"
           >
-            New Chat
+            {isSidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto">
+
+        <div className={cn(
+          "flex-1 overflow-y-auto",
+          isSidebarCollapsed && "hidden"
+        )}>
           <ConversationSidebar
             userId={1}
             currentSessionId={currentSession?.id}
@@ -251,111 +273,131 @@ export default function Practice() {
 
       <div className="flex-1 grid grid-cols-[2fr,1fr] overflow-hidden">
         <div className="flex flex-col items-center justify-start bg-accent/5 py-12 overflow-y-auto">
-          <div className="mb-12 flex flex-col items-center">
-            <TeacherAvatar
-              className="scale-[1.75] mb-8"
-              speaking={isSpeaking}
-              intensity={speakingIntensity}
-            />
-            {currentSession && (
-              <p className="text-sm text-muted-foreground">
-                Context: {currentSession.context}
-              </p>
-            )}
-          </div>
-          <div className="w-full max-w-xl px-8">
-            <ConversationStarters onSelectContext={handleContextSelect} />
-          </div>
+          {!currentSession ? (
+            <>
+              <div className="mb-12 flex flex-col items-center">
+                <TeacherAvatar
+                  className="scale-[1.75] mb-8"
+                  speaking={isSpeaking}
+                  intensity={speakingIntensity}
+                />
+                <h2 className="text-xl font-semibold mb-2">Profesora Ana</h2>
+                <p className="text-sm text-muted-foreground">
+                  Ready to help you practice Spanish
+                </p>
+              </div>
+              <div className="w-full max-w-xl px-8">
+                <ConversationStarters onSelectContext={handleContextSelect} />
+              </div>
+            </>
+          ) : (
+            <div className="w-full max-w-xl px-8">
+              <Card className="mb-4 bg-accent/10">
+                <CardContent className="p-4">
+                  <p className="text-sm text-center text-muted-foreground">
+                    Current context: {currentSession.context}
+                  </p>
+                </CardContent>
+              </Card>
+              <ScrollArea className="h-[calc(100vh-16rem)]">
+                <div className="space-y-4 pr-4">
+                  {messages.map((message, i) => (
+                    <Card key={i} className={message.type === "user" ? "bg-accent/10" : "bg-background"}>
+                      <CardContent className="p-4 space-y-2">
+                        <div className="flex items-center gap-4">
+                          {message.type === "teacher" && (
+                            <div className="flex-shrink-0">
+                              <TeacherAvatar
+                                className="w-8 h-8"
+                                speaking={isSpeaking && i === messages.length - 1}
+                                intensity={speakingIntensity}
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 space-x-1 whitespace-pre-wrap break-words">
+                                {message.content}
+                              </div>
+                              {message.type === "teacher" && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => speak(message.content)}
+                                  className="flex-shrink-0 ml-2"
+                                >
+                                  <Volume2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+
+                            {message.type === "teacher" && message.translation && (
+                              <Collapsible className="mt-2">
+                                <CollapsibleTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="p-0 h-6 text-muted-foreground hover:text-foreground">
+                                    <ChevronRight className="h-4 w-4 mr-1" />
+                                    Show translation
+                                  </Button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="pt-2 text-sm text-muted-foreground">
+                                  {message.translation}
+                                </CollapsibleContent>
+                              </Collapsible>
+                            )}
+
+                            {message.type === "teacher" &&
+                             message.corrections?.mistakes &&
+                             message.corrections.mistakes.length > 0 &&
+                             i > 0 &&
+                             messages[i - 1].type === "user" &&
+                             message.correctedMessage === messages[i - 1].content && (
+                              <div className="mt-2 p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
+                                <div className="flex items-center gap-2 text-yellow-600 mb-2">
+                                  <AlertCircle className="h-4 w-4" />
+                                  <span className="text-sm font-medium">Corrections:</span>
+                                </div>
+                                <div className="space-y-3">
+                                  {message.corrections.mistakes.map((correction, j) => (
+                                    <div key={j} className="text-sm space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className={cn(
+                                          "text-xs px-2 py-0.5 rounded-full",
+                                          correction.type === "grammar" && "bg-red-100 text-red-700 border border-red-200",
+                                          correction.type === "vocabulary" && "bg-blue-100 text-blue-700 border border-blue-200",
+                                          correction.type === "punctuation" && "bg-yellow-100 text-yellow-700 border border-yellow-200"
+                                        )}>
+                                          {correction.type.charAt(0).toUpperCase() + correction.type.slice(1)}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2 font-mono">
+                                        <span className="bg-red-50 px-1.5 py-0.5 rounded">
+                                          {correction.original}
+                                        </span>
+                                        <span className="text-gray-500">→</span>
+                                        <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">
+                                          {correction.correction}
+                                        </span>
+                                      </div>
+                                      <p className="text-blue-600">{correction.explanation_es}</p>
+                                      <p className="text-gray-600">{correction.explanation}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-col p-4 border-l overflow-y-auto">
-          <h1 className="text-xl font-semibold mb-4 flex-none">
-            Conversation History
-          </h1>
-
-          <ScrollArea className="flex-1">
-            <div className="space-y-4 pr-4">
-              {messages.map((message, i) => (
-                <Card key={i} className={message.type === "user" ? "bg-accent/10" : "bg-background"}>
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 space-x-1 whitespace-pre-wrap break-words">
-                        {message.content}
-                      </div>
-                      {message.type === "teacher" && (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => speak(message.content)}
-                          >
-                            <Volume2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
-                    {message.type === "teacher" && message.translation && (
-                      <Collapsible className="mt-2">
-                        <CollapsibleTrigger asChild>
-                          <Button variant="ghost" size="sm" className="p-0 h-6 text-muted-foreground hover:text-foreground">
-                            <ChevronDown className="h-4 w-4 mr-1" />
-                            Show translation
-                          </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="pt-2 text-sm text-muted-foreground">
-                          {message.translation}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    )}
-
-                    {message.type === "teacher" &&
-                     message.corrections?.mistakes &&
-                     message.corrections.mistakes.length > 0 &&
-                     i > 0 &&
-                     messages[i - 1].type === "user" &&
-                     message.correctedMessage === messages[i - 1].content && ( // Only show corrections if they belong to the previous message
-                      <div className="mt-2 p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
-                        <div className="flex items-center gap-2 text-yellow-600 mb-2">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="text-sm font-medium">Corrections:</span>
-                        </div>
-                        <div className="space-y-3">
-                          {message.corrections.mistakes.map((correction, j) => (
-                            <div key={j} className="text-sm space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className={cn(
-                                  "text-xs px-2 py-0.5 rounded-full",
-                                  correction.type === "grammar" && "bg-red-100 text-red-700 border border-red-200",
-                                  correction.type === "vocabulary" && "bg-blue-100 text-blue-700 border border-blue-200",
-                                  correction.type === "punctuation" && "bg-yellow-100 text-yellow-700 border border-yellow-200"
-                                )}>
-                                  {correction.type.charAt(0).toUpperCase() + correction.type.slice(1)}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 font-mono">
-                                <span className="bg-red-50 px-1.5 py-0.5 rounded">
-                                  {correction.original}
-                                </span>
-                                <span className="text-gray-500">→</span>
-                                <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">
-                                  {correction.correction}
-                                </span>
-                              </div>
-                              <p className="text-blue-600">{correction.explanation_es}</p>
-                              <p className="text-gray-600">{correction.explanation}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-
-          <div className="mt-4 flex-none">
+        <div className="flex flex-col p-4 border-l">
+          <div className="mt-auto">
             <SpeechInput onSubmit={handleSubmit} />
           </div>
         </div>
