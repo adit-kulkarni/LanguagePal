@@ -81,6 +81,9 @@ export async function getTeacherResponse(
   // Get only the most recent messages for context (last 4 turns)
   const recentMessages = (previousMessages || []).slice(-4);
 
+  // Make it clear which message needs correction
+  const messageToCorrect = transcript;
+
   const systemPrompt = {
     role: "system" as const,
     content: `You are Profesora Ana, a warm and engaging Colombian Spanish teacher. Your responses must follow these STRICT rules:
@@ -95,11 +98,13 @@ export async function getTeacherResponse(
      * Explain what part is unclear
      * Still note any obvious errors in the corrections section
 
-2. ERROR HANDLING:
-   - ONLY correct errors in the most recent user message
-   - NEVER correct errors from previous messages
-   - The main message should only focus on continuing the conversation
-   - Example response for "yo esta bien":
+2. ERROR HANDLING - CRITICAL:
+   - You must ONLY check for errors in this exact message: "${messageToCorrect}"
+   - NEVER include corrections for any other messages
+   - NEVER reference or correct previous messages
+   - If you don't find any errors in the current message, return an empty mistakes array
+   - The main message should focus only on continuing the conversation
+   - Example correction format:
      {
        "message": "¡Me alegro! ¿Qué planes tienes para hoy?",
        "translation": "I'm glad! What plans do you have for today?",
@@ -170,7 +175,7 @@ CRITICAL: Your response MUST be a JSON object with:
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4",
       messages,
       response_format: { type: "json_object" }
     });
@@ -192,6 +197,11 @@ CRITICAL: Your response MUST be a JSON object with:
     if (!parsed.corrections.mistakes) {
       parsed.corrections.mistakes = [];
     }
+
+    // Additional validation to ensure corrections only apply to current message
+    parsed.corrections.mistakes = parsed.corrections.mistakes.filter(mistake => {
+      return transcript.includes(mistake.original);
+    });
 
     return parsed;
   } catch (error) {

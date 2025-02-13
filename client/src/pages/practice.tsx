@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface Message {
+  id?: number;  // Add unique ID
   type: "user" | "teacher";
   content: string;
   corrections?: {
@@ -31,7 +32,7 @@ interface Message {
     }>;
   };
   translation?: string;
-  correctedMessage?: string; 
+  userMessageId?: number;  // Reference to the user message this teacher message is correcting
 }
 
 interface TranslationCache {
@@ -45,6 +46,7 @@ interface TranslationCache {
 
 export default function Practice() {
   const [messages, setMessages] = React.useState<Message[]>([{
+    id: 0,
     type: "teacher",
     content: "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!"
   }]);
@@ -55,6 +57,7 @@ export default function Practice() {
   const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
   const queryClient = useQueryClient();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
+  const [messageIdCounter, setMessageIdCounter] = React.useState(1);
 
   const speak = React.useCallback((text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
@@ -110,20 +113,27 @@ export default function Practice() {
           context: data.session.context
         });
 
-        // Add the user message first
-        const userMessage: Message = { type: "user", content: text };
+        // Add the user message first with a unique ID
+        const userMessageId = messageIdCounter;
+        const userMessage: Message = { 
+          id: userMessageId,
+          type: "user", 
+          content: text 
+        };
+        setMessageIdCounter(prev => prev + 1);
 
-        // Then add teacher's response with explicit correction link
+        // Then add teacher's response referencing the user message ID
         const teacherMessage: Message = {
+          id: messageIdCounter,
           type: "teacher",
           content: data.teacherResponse.message,
           translation: data.teacherResponse.translation,
           corrections: data.teacherResponse.corrections,
-          correctedMessage: text  // Explicitly link to the user's message
+          userMessageId: userMessageId
         };
+        setMessageIdCounter(prev => prev + 1);
 
         setMessages(prev => [...prev, userMessage, teacherMessage]);
-
         queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
         return;
       } catch (error) {
@@ -136,8 +146,14 @@ export default function Practice() {
       }
     }
 
-    // Add user message immediately
-    const userMessage: Message = { type: "user", content: text };
+    // Add user message immediately with a unique ID
+    const userMessageId = messageIdCounter;
+    const userMessage: Message = { 
+      id: userMessageId,
+      type: "user", 
+      content: text 
+    };
+    setMessageIdCounter(prev => prev + 1);
     setMessages(prev => [...prev, userMessage]);
 
     try {
@@ -149,14 +165,16 @@ export default function Practice() {
 
       const data = await response.json();
 
-      // Add teacher's response with explicit correction link
+      // Add teacher's response with reference to the user message
       const teacherMessage: Message = {
+        id: messageIdCounter,
         type: "teacher",
         content: data.teacherResponse.message,
         translation: data.teacherResponse.translation,
         corrections: data.teacherResponse.corrections,
-        correctedMessage: text  // Explicitly link to the user's message
+        userMessageId: userMessageId
       };
+      setMessageIdCounter(prev => prev + 1);
 
       setMessages(prev => [...prev, teacherMessage]);
       speak(data.teacherResponse.message);
@@ -184,10 +202,12 @@ export default function Practice() {
       });
 
       setMessages([{
+        id: messageIdCounter,
         type: "teacher",
         content: data.teacherResponse.message,
         translation: data.teacherResponse.translation
       }]);
+      setMessageIdCounter(prev => prev + 1);
 
       queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
     } catch (error) {
@@ -221,9 +241,11 @@ export default function Practice() {
   const handleNewChat = () => {
     setCurrentSession(null);
     setMessages([{
+      id: messageIdCounter,
       type: "teacher",
       content: "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!"
     }]);
+    setMessageIdCounter(prev => prev + 1);
     queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
   };
 
@@ -305,7 +327,7 @@ export default function Practice() {
             <ScrollArea className="flex-1 px-8 py-4">
               <div className="space-y-4 max-w-3xl mx-auto">
                 {messages.map((message, i) => (
-                  <Card key={i} className={message.type === "user" ? "bg-accent/10" : "bg-background"}>
+                  <Card key={message.id} className={message.type === "user" ? "bg-accent/10" : "bg-background"}>
                     <CardContent className="p-4 space-y-2">
                       <div className="flex items-center gap-4">
                         {message.type === "teacher" && (
@@ -352,9 +374,8 @@ export default function Practice() {
                           {message.type === "teacher" &&
                            message.corrections?.mistakes &&
                            message.corrections.mistakes.length > 0 &&
-                           i > 0 &&
-                           messages[i - 1].type === "user" &&
-                           message.correctedMessage === messages[i - 1].content && (
+                           message.userMessageId !== undefined &&
+                           messages.find(m => m.id === message.userMessageId)?.type === "user" && (
                             <div className="mt-2 p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
                               <div className="flex items-center gap-2 text-yellow-600 mb-2">
                                 <AlertCircle className="h-4 w-4" />
