@@ -110,17 +110,19 @@ export default function Practice() {
           context: data.session.context
         });
 
-        setMessages(prev => [
-          ...prev,
-          { type: "user", content: text },
-          {
-            type: "teacher",
-            content: data.teacherResponse.message,
-            translation: data.teacherResponse.translation,
-            corrections: data.teacherResponse.corrections,
-            correctedMessage: text 
-          }
-        ]);
+        // Add the user message first
+        const userMessage: Message = { type: "user", content: text };
+
+        // Then add teacher's response with explicit correction link
+        const teacherMessage: Message = {
+          type: "teacher",
+          content: data.teacherResponse.message,
+          translation: data.teacherResponse.translation,
+          corrections: data.teacherResponse.corrections,
+          correctedMessage: text  // Explicitly link to the user's message
+        };
+
+        setMessages(prev => [...prev, userMessage, teacherMessage]);
 
         queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
         return;
@@ -134,7 +136,9 @@ export default function Practice() {
       }
     }
 
-    setMessages(prev => [...prev, { type: "user", content: text }]);
+    // Add user message immediately
+    const userMessage: Message = { type: "user", content: text };
+    setMessages(prev => [...prev, userMessage]);
 
     try {
       const response = await apiRequest(
@@ -145,17 +149,16 @@ export default function Practice() {
 
       const data = await response.json();
 
-      setMessages(prev => [
-        ...prev,
-        {
-          type: "teacher",
-          content: data.teacherResponse.message,
-          translation: data.teacherResponse.translation,
-          corrections: data.teacherResponse.corrections,
-          correctedMessage: text 
-        }
-      ]);
+      // Add teacher's response with explicit correction link
+      const teacherMessage: Message = {
+        type: "teacher",
+        content: data.teacherResponse.message,
+        translation: data.teacherResponse.translation,
+        corrections: data.teacherResponse.corrections,
+        correctedMessage: text  // Explicitly link to the user's message
+      };
 
+      setMessages(prev => [...prev, teacherMessage]);
       speak(data.teacherResponse.message);
     } catch (error) {
       toast({
