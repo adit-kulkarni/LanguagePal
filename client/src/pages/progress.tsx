@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import * as Progress from "@/components/ui/progress";
+import * as ProgressPrimitive from "@/components/ui/progress";
 import { Trophy } from "lucide-react";
 import {
   Accordion,
@@ -46,6 +46,17 @@ interface CorrectionHistoryItem {
   timestamp: string;
   mistakes: Mistake[];
   userMessage?: string;
+}
+
+function ProgressBar({ value }: { value: number }) {
+  return (
+    <ProgressPrimitive.Root className="h-2 w-full bg-secondary">
+      <ProgressPrimitive.Indicator
+        className="h-full bg-primary transition-all"
+        style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+      />
+    </ProgressPrimitive.Root>
+  );
 }
 
 export default function ProgressPage() {
@@ -87,7 +98,7 @@ export default function ProgressPage() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-yellow-500" />
-            <CardTitle>CEFR Level: {user.progress.cefr || 'A1'}</CardTitle>
+            <CardTitle>CEFR Level: {user.progress?.cefr || 'A1'}</CardTitle>
           </div>
           <CardDescription>
             Common European Framework of Reference for Languages
@@ -101,14 +112,9 @@ export default function ProgressPage() {
             <CardTitle>Grammar</CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress.Root className="h-2">
-              <Progress.Indicator
-                style={{ width: `${user.progress.grammar || 0}%` }}
-                className="h-full bg-primary transition-all"
-              />
-            </Progress.Root>
+            <ProgressBar value={user.progress?.grammar || 0} />
             <p className="mt-2 text-sm text-muted-foreground">
-              {user.progress.grammar || 0}% mastery
+              {user.progress?.grammar || 0}% mastery
             </p>
           </CardContent>
         </Card>
@@ -118,14 +124,9 @@ export default function ProgressPage() {
             <CardTitle>Vocabulary</CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress.Root className="h-2">
-              <Progress.Indicator
-                style={{ width: `${user.progress.vocabulary || 0}%` }}
-                className="h-full bg-primary transition-all"
-              />
-            </Progress.Root>
+            <ProgressBar value={user.progress?.vocabulary || 0} />
             <p className="mt-2 text-sm text-muted-foreground">
-              {user.progress.vocabulary || 0}% mastery
+              {user.progress?.vocabulary || 0}% mastery
             </p>
           </CardContent>
         </Card>
@@ -135,14 +136,9 @@ export default function ProgressPage() {
             <CardTitle>Speaking</CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress.Root className="h-2">
-              <Progress.Indicator
-                style={{ width: `${user.progress.speaking || 0}%` }}
-                className="h-full bg-primary transition-all"
-              />
-            </Progress.Root>
+            <ProgressBar value={user.progress?.speaking || 0} />
             <p className="mt-2 text-sm text-muted-foreground">
-              {user.progress.speaking || 0}% fluency
+              {user.progress?.speaking || 0}% fluency
             </p>
           </CardContent>
         </Card>
