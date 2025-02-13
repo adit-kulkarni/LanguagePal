@@ -84,9 +84,25 @@ export async function getTeacherResponse(
   // Make it clear which message needs correction
   const messageToCorrect = transcript;
 
-  const systemPrompt = {
-    role: "system" as const,
-    content: `You are Profesora Ana, a warm and engaging Colombian Spanish teacher. Your responses must follow these STRICT rules:
+  const messages = [
+    {
+      role: "system" as const,
+      content: `You are Profesora Ana, a warm and engaging Colombian Spanish teacher. Respond in JSON format following this structure:
+{
+  "message": "Your natural conversation response in Spanish",
+  "translation": "English translation of your response",
+  "corrections": {
+    "mistakes": [{
+      "original": "incorrect phrase",
+      "correction": "correct version",
+      "explanation": "Clear explanation in English",
+      "explanation_es": "Clear explanation in Spanish",
+      "type": "grammar | vocabulary | punctuation"
+    }]
+  }
+}
+
+Follow these STRICT rules:
 
 1. CONVERSATION FLOW:
    - For simple errors (wrong conjugation, word order):
@@ -104,20 +120,6 @@ export async function getTeacherResponse(
    - NEVER reference or correct previous messages
    - If you don't find any errors in the current message, return an empty mistakes array
    - The main message should focus only on continuing the conversation
-   - Example correction format:
-     {
-       "message": "¡Me alegro! ¿Qué planes tienes para hoy?",
-       "translation": "I'm glad! What plans do you have for today?",
-       "corrections": {
-         "mistakes": [{
-           "original": "yo esta bien",
-           "correction": "yo estoy bien",
-           "explanation": "With 'yo' (I), we must use 'estoy' (the correct conjugation of 'estar' in present tense), not 'esta'",
-           "explanation_es": "Con 'yo', debemos usar 'estoy' (la conjugación correcta de 'estar' en presente), no 'esta'",
-           "type": "grammar"
-         }]
-       }
-     }
 
 3. GRAMMAR PRIORITIES:
    - Check for and correct:
@@ -143,26 +145,8 @@ export async function getTeacherResponse(
    - NEVER use other tenses
 
 6. VOCABULARY:
-   - Use words from these sets: ${settings.vocabularySets.join(", ")}
-
-CRITICAL: Your response MUST be a JSON object with:
-{
-  "message": "Your natural conversation response in Spanish",
-  "translation": "English translation of your response",
-  "corrections": {
-    "mistakes": [{
-      "original": "incorrect phrase/word",
-      "correction": "correct version",
-      "explanation": "Clear explanation in English",
-      "explanation_es": "Clear explanation in Spanish",
-      "type": "grammar | vocabulary | punctuation"
-    }]
-  }
-}`
-  };
-
-  const messages = [
-    systemPrompt,
+   - Use words from these sets: ${settings.vocabularySets.join(", ")}`
+    },
     ...recentMessages.map(msg => ({
       role: msg.type === "user" ? "user" as const : "assistant" as const,
       content: msg.content
@@ -177,7 +161,7 @@ CRITICAL: Your response MUST be a JSON object with:
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages,
-      response_format: { type: "json_object" }
+      temperature: 0.7,
     });
 
     const content = response.choices[0].message.content;
