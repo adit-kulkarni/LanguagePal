@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { AlertCircle, Volume2, Loader2, ChevronDown, MessageSquare } from "lucide-react";
+import { AlertCircle, Volume2, Loader2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -58,7 +58,6 @@ export default function Practice() {
   const [isSpeaking, setIsSpeaking] = React.useState(false);
   const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
   const queryClient = useQueryClient();
-  const [showChat, setShowChat] = React.useState(false);
 
   const speak = React.useCallback((text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
@@ -121,7 +120,7 @@ export default function Practice() {
             type: "teacher",
             content: data.teacherResponse.message,
             translation: data.teacherResponse.translation,
-            corrections: data.teacherResponse.corrections
+            corrections: data.teacherResponse.corrections // Ensure corrections are passed
           }
         ]);
 
@@ -155,7 +154,7 @@ export default function Practice() {
           type: "teacher",
           content: data.teacherResponse.message,
           translation: data.teacherResponse.translation,
-          corrections: data.teacherResponse.corrections
+          corrections: data.teacherResponse.corrections // Ensure corrections are passed
         }
       ]);
 
@@ -248,135 +247,115 @@ export default function Practice() {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 flex flex-col items-center justify-center relative bg-accent/10 p-8">
-          {currentSession && (
-            <div className="absolute top-4 left-4 text-sm text-muted-foreground">
-              Context: {currentSession.context}
-            </div>
-          )}
-
-          <div className="flex-1 flex flex-col items-center justify-center max-w-2xl w-full">
+      <div className="flex-1 grid grid-cols-2 overflow-hidden">
+        <div className="flex flex-col items-center bg-accent/10 py-8 overflow-y-auto">
+          <div className="mb-8 flex flex-col items-center">
             <TeacherAvatar
-              className="scale-150 mb-8"
+              className="scale-125 mb-2"
               speaking={isSpeaking}
               intensity={speakingIntensity}
             />
-
-            {messages.length > 0 && (
-              <div className="text-center mb-8 space-y-4">
-                <p className="text-xl">{messages[messages.length - 1].content}</p>
-                {messages[messages.length - 1].type === "teacher" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => speak(messages[messages.length - 1].content)}
-                    className="gap-2"
-                  >
-                    <Volume2 className="h-4 w-4" />
-                    Listen Again
-                  </Button>
-                )}
-              </div>
-            )}
-
-            <div className="w-full max-w-md">
-              <SpeechInput onSubmit={handleSubmit} />
-            </div>
-
-            {!currentSession && (
-              <div className="mt-8 w-full max-w-2xl">
-                <ConversationStarters onSelectContext={handleContextSelect} />
-              </div>
-            )}
           </div>
-
-          <Button
-            variant="outline"
-            size="icon"
-            className="absolute bottom-4 right-4"
-            onClick={() => setShowChat(!showChat)}
-          >
-            <MessageSquare className="h-4 w-4" />
-          </Button>
+          <div className="w-full px-4">
+            <ConversationStarters onSelectContext={handleContextSelect} />
+          </div>
         </div>
 
-        <Collapsible open={showChat} onOpenChange={setShowChat}>
-          <CollapsibleContent className="w-96 border-l h-full bg-background">
-            <div className="flex flex-col h-full p-4">
-              <h2 className="text-lg font-semibold mb-4">Conversation History</h2>
-              <ScrollArea className="flex-1">
-                <div className="space-y-4 pr-4">
-                  {messages.map((message, i) => (
-                    <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
-                      <CardContent className="p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 space-x-1 whitespace-pre-wrap break-words">
-                            {message.content}
-                          </div>
+        <div className="flex flex-col p-4 overflow-y-auto">
+          <h1 className="text-2xl font-bold mb-4 flex-none">
+            Practice Spanish
+            {currentSession && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                Context: {currentSession.context}
+              </span>
+            )}
+          </h1>
+
+          <ScrollArea className="flex-1">
+            <div className="space-y-4 pr-4">
+              {messages.map((message, i) => (
+                <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 space-x-1 whitespace-pre-wrap break-words">
+                        {message.content}
+                      </div>
+                      {message.type === "teacher" && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => speak(message.content)}
+                          >
+                            <Volume2 className="h-4 w-4" />
+                          </Button>
                         </div>
+                      )}
+                    </div>
 
-                        {message.type === "teacher" && message.translation && (
-                          <Collapsible className="mt-2">
-                            <CollapsibleTrigger asChild>
-                              <Button variant="ghost" size="sm" className="p-0 h-6 text-muted-foreground hover:text-foreground">
-                                <ChevronDown className="h-4 w-4 mr-1" />
-                                Show translation
-                              </Button>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pt-2 text-sm text-muted-foreground">
-                              {message.translation}
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
+                    {message.type === "teacher" && message.translation && (
+                      <Collapsible className="mt-2">
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="p-0 h-6 text-muted-foreground hover:text-foreground">
+                            <ChevronDown className="h-4 w-4 mr-1" />
+                            Show translation
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-2 text-sm text-muted-foreground">
+                          {message.translation}
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
 
-                        {message.type === "teacher" &&
-                          message.corrections?.mistakes &&
-                          message.corrections.mistakes.length > 0 &&
-                          i > 0 &&
-                          messages[i - 1].type === "user" && (
-                            <div className="mt-2 p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
-                              <div className="flex items-center gap-2 text-yellow-600 mb-2">
-                                <AlertCircle className="h-4 w-4" />
-                                <span className="text-sm font-medium">Corrections:</span>
+                    {message.type === "teacher" && 
+                     message.corrections?.mistakes && 
+                     message.corrections.mistakes.length > 0 && 
+                     i > 0 && 
+                     messages[i - 1].type === "user" && (
+                      <div className="mt-2 p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
+                        <div className="flex items-center gap-2 text-yellow-600 mb-2">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Corrections:</span>
+                        </div>
+                        <div className="space-y-3">
+                          {message.corrections.mistakes.map((correction, j) => (
+                            <div key={j} className="text-sm space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={cn(
+                                  "text-xs px-2 py-0.5 rounded-full",
+                                  correction.type === "grammar" && "bg-red-100 text-red-700 border border-red-200",
+                                  correction.type === "vocabulary" && "bg-blue-100 text-blue-700 border border-blue-200",
+                                  correction.type === "punctuation" && "bg-yellow-100 text-yellow-700 border border-yellow-200"
+                                )}>
+                                  {correction.type.charAt(0).toUpperCase() + correction.type.slice(1)}
+                                </span>
                               </div>
-                              <div className="space-y-3">
-                                {message.corrections.mistakes.map((correction, j) => (
-                                  <div key={j} className="text-sm space-y-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className={cn(
-                                        "text-xs px-2 py-0.5 rounded-full",
-                                        correction.type === "grammar" && "bg-red-100 text-red-700 border border-red-200",
-                                        correction.type === "vocabulary" && "bg-blue-100 text-blue-700 border border-blue-200",
-                                        correction.type === "punctuation" && "bg-yellow-100 text-yellow-700 border border-yellow-200"
-                                      )}>
-                                        {correction.type.charAt(0).toUpperCase() + correction.type.slice(1)}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2 font-mono">
-                                      <span className="bg-red-50 px-1.5 py-0.5 rounded">
-                                        {correction.original}
-                                      </span>
-                                      <span className="text-gray-500">→</span>
-                                      <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">
-                                        {correction.correction}
-                                      </span>
-                                    </div>
-                                    <p className="text-blue-600">{correction.explanation_es}</p>
-                                    <p className="text-gray-600">{correction.explanation}</p>
-                                  </div>
-                                ))}
+                              <div className="flex items-center gap-2 font-mono">
+                                <span className="bg-red-50 px-1.5 py-0.5 rounded">
+                                  {correction.original}
+                                </span>
+                                <span className="text-gray-500">→</span>
+                                <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">
+                                  {correction.correction}
+                                </span>
                               </div>
+                              <p className="text-blue-600">{correction.explanation_es}</p>
+                              <p className="text-gray-600">{correction.explanation}</p>
                             </div>
-                          )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </ScrollArea>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          </CollapsibleContent>
-        </Collapsible>
+          </ScrollArea>
+
+          <div className="mt-4 flex-none">
+            <SpeechInput onSubmit={handleSubmit} />
+          </div>
+        </div>
       </div>
     </div>
   );
