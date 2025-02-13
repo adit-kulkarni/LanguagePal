@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import * as ProgressPrimitive from "@/components/ui/progress";
+import * as Progress from "@/components/ui/progress";
 import { Trophy } from "lucide-react";
 import {
   Accordion,
@@ -50,12 +50,11 @@ interface CorrectionHistoryItem {
 
 function ProgressBar({ value }: { value: number }) {
   return (
-    <ProgressPrimitive.Root className="h-2 w-full bg-secondary">
-      <ProgressPrimitive.Indicator
-        className="h-full bg-primary transition-all"
+    <Progress.Root>
+      <Progress.Indicator
         style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
       />
-    </ProgressPrimitive.Root>
+    </Progress.Root>
   );
 }
 
@@ -70,7 +69,7 @@ export default function ProgressPage() {
 
   // Group corrections by date
   const groupedCorrections = React.useMemo(() => {
-    if (!correctionsHistory) return {} as Record<string, CorrectionHistoryItem[]>;
+    if (!correctionsHistory) return {};
 
     return correctionsHistory.reduce((acc: Record<string, CorrectionHistoryItem[]>, item) => {
       const date = format(new Date(item.timestamp), 'MMM d, yyyy');
@@ -179,9 +178,11 @@ export default function ProgressPage() {
                                 <span>{format(new Date(item.timestamp), 'h:mm a')}</span>
                               </div>
 
-                              <div className="text-sm font-mono bg-muted/50 p-2 rounded">
-                                {item.userMessage}
-                              </div>
+                              {item.userMessage && (
+                                <div className="text-sm font-mono bg-muted/50 p-2 rounded">
+                                  {item.userMessage}
+                                </div>
+                              )}
 
                               <div className="space-y-2">
                                 {item.mistakes.map((mistake, mIdx) => (
