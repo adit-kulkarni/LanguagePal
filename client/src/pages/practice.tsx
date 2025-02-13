@@ -36,6 +36,7 @@ interface Message {
     }>;
   };
   translation?: string;
+  correctedMessage?: string; // Add this to store which message was corrected
 }
 
 interface TranslationCache {
@@ -120,7 +121,8 @@ export default function Practice() {
             type: "teacher",
             content: data.teacherResponse.message,
             translation: data.teacherResponse.translation,
-            corrections: data.teacherResponse.corrections // Ensure corrections are passed
+            corrections: data.teacherResponse.corrections,
+            correctedMessage: text // Store which message this correction belongs to
           }
         ]);
 
@@ -146,7 +148,6 @@ export default function Practice() {
       );
 
       const data = await response.json();
-      console.log('Received teacher response:', data);
 
       setMessages(prev => [
         ...prev,
@@ -154,7 +155,8 @@ export default function Practice() {
           type: "teacher",
           content: data.teacherResponse.message,
           translation: data.teacherResponse.translation,
-          corrections: data.teacherResponse.corrections // Ensure corrections are passed
+          corrections: data.teacherResponse.corrections,
+          correctedMessage: text // Store which message this correction belongs to
         }
       ]);
 
@@ -311,7 +313,8 @@ export default function Practice() {
                      message.corrections?.mistakes &&
                      message.corrections.mistakes.length > 0 &&
                      i > 0 &&
-                     messages[i - 1].type === "user" && (
+                     messages[i - 1].type === "user" &&
+                     message.correctedMessage === messages[i - 1].content && ( // Only show corrections if they belong to the previous message
                       <div className="mt-2 p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
                         <div className="flex items-center gap-2 text-yellow-600 mb-2">
                           <AlertCircle className="h-4 w-4" />
