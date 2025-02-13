@@ -59,13 +59,19 @@ function ProgressBar({ value }: { value: number }) {
 }
 
 export default function ProgressPage() {
+  console.log("ProgressPage component is rendering"); // Debug log
+
   const { data: user, isLoading: isLoadingUser } = useQuery<User>({
     queryKey: ["/api/users/1"],
   });
 
+  console.log("User data:", user); // Debug log
+
   const { data: correctionsHistory, isLoading: isLoadingHistory } = useQuery<CorrectionHistoryItem[]>({
     queryKey: ["/api/users/1/corrections-history"],
   });
+
+  console.log("Corrections history:", correctionsHistory); // Debug log
 
   // Group corrections by date
   const groupedCorrections = React.useMemo(() => {
@@ -80,6 +86,7 @@ export default function ProgressPage() {
   }, [correctionsHistory]);
 
   if (isLoadingUser) {
+    console.log("Loading user data..."); // Debug log
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-muted-foreground">Loading progress data...</div>
@@ -87,7 +94,12 @@ export default function ProgressPage() {
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    console.log("No user data available"); // Debug log
+    return null;
+  }
+
+  console.log("Rendering progress page with data"); // Debug log
 
   return (
     <div className="container mx-auto p-4 space-y-8">
