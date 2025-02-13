@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface TeacherResponse {
@@ -76,10 +75,11 @@ export async function getTeacherResponse(
   const isContextStart = transcript.startsWith("START_CONTEXT:");
   const context = isContextStart ? transcript.replace("START_CONTEXT:", "").trim() : "";
 
-  const conversationContext = extractConversationContext(previousMessages);
+  // Extract conversation context from all messages
+  const conversationContext = extractConversationContext(previousMessages || []);
 
   // Get only the most recent messages for context (last 4 turns)
-  const recentMessages = previousMessages.slice(-4);
+  const recentMessages = (previousMessages || []).slice(-4);
 
   const systemPrompt = {
     role: "system" as const,
@@ -128,7 +128,7 @@ export async function getTeacherResponse(
 
 4. CONVERSATION MEMORY:
    - This is a focused conversation about: ${context || "general Spanish practice"}
-   - Topics already discussed: ${conversationContext.topics_discussed.join(", ")}
+   - Topics already discussed: ${conversationContext.topics_discussed.join(", ") || "none yet"}
    ${conversationContext.student_info.hobbies ? 
       `- Student's known hobbies: ${conversationContext.student_info.hobbies.join(", ")}` : 
       ""}
@@ -168,8 +168,6 @@ CRITICAL: Your response MUST be a JSON object with:
     }
   ];
 
-  console.log('Sending to OpenAI:', JSON.stringify(messages, null, 2));
-
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -187,6 +185,7 @@ CRITICAL: Your response MUST be a JSON object with:
     const parsed = JSON.parse(content) as TeacherResponse;
     console.log('Parsed response:', JSON.stringify(parsed, null, 2));
 
+    // Ensure corrections object exists and has mistakes array
     if (!parsed.corrections) {
       parsed.corrections = { mistakes: [] };
     }
