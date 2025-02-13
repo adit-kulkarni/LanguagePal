@@ -72,12 +72,14 @@ export async function getTeacherResponse(
   previousMessages: { type: string; content: string }[] = []
 ): Promise<TeacherResponse> {
   console.log('Transcript received:', transcript);
-  console.log('Previous messages:', previousMessages);
 
   const isContextStart = transcript.startsWith("START_CONTEXT:");
   const context = isContextStart ? transcript.replace("START_CONTEXT:", "").trim() : "";
 
   const conversationContext = extractConversationContext(previousMessages);
+
+  // Get only the most recent messages for context (last 4 turns)
+  const recentMessages = previousMessages.slice(-4);
 
   const systemPrompt = {
     role: "system" as const,
@@ -94,7 +96,8 @@ export async function getTeacherResponse(
      * Still note any obvious errors in the corrections section
 
 2. ERROR HANDLING:
-   - ALL errors must be listed in the corrections section, never in the main message
+   - ONLY correct errors in the most recent user message
+   - NEVER correct errors from previous messages
    - The main message should only focus on continuing the conversation
    - Example response for "yo esta bien":
      {
@@ -155,7 +158,7 @@ CRITICAL: Your response MUST be a JSON object with:
 
   const messages = [
     systemPrompt,
-    ...previousMessages.map(msg => ({
+    ...recentMessages.map(msg => ({
       role: msg.type === "user" ? "user" as const : "assistant" as const,
       content: msg.content
     })),
