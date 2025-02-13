@@ -377,6 +377,34 @@ export function registerRoutes(app: Express): Server {
         }
     });
 
+    app.get("/api/users/:id", async (req, res) => {
+        try {
+            const id = parseInt(req.params.id);
+            const user = await storage.getUser(id);
+
+            if (!user) {
+                return res.status(404).json({ message: "User not found" });
+            }
+
+            // Ensure we have default progress values
+            const progress = user.progress || {
+                grammar: 0,
+                vocabulary: 0,
+                speaking: 0,
+                cefr: "A1"
+            };
+
+            res.json({
+                id: user.id,
+                email: user.email,
+                progress
+            });
+        } catch (error) {
+            console.error('Get user error:', error);
+            res.status(500).json({ message: "Failed to fetch user" });
+        }
+    });
+
     const httpServer = createServer(app);
     return httpServer;
 }
