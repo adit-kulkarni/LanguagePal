@@ -228,7 +228,7 @@ export default function Practice() {
 
   return (
     <div className="h-screen overflow-hidden flex">
-      <div className="w-80 border-r h-full overflow-hidden flex flex-col">
+      <div className="w-72 border-r h-full overflow-hidden flex flex-col">
         <div className="p-4 border-b">
           <Button
             variant="outline"
@@ -247,34 +247,34 @@ export default function Practice() {
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-2 overflow-hidden">
-        <div className="flex flex-col items-center bg-accent/10 py-8 overflow-y-auto">
-          <div className="mb-8 flex flex-col items-center">
+      <div className="flex-1 grid grid-cols-[2fr,1fr] overflow-hidden">
+        <div className="flex flex-col items-center justify-start bg-accent/5 py-12 overflow-y-auto">
+          <div className="mb-12 flex flex-col items-center">
             <TeacherAvatar
-              className="scale-125 mb-2"
+              className="scale-[1.75] mb-8"
               speaking={isSpeaking}
               intensity={speakingIntensity}
             />
+            {currentSession && (
+              <p className="text-sm text-muted-foreground">
+                Context: {currentSession.context}
+              </p>
+            )}
           </div>
-          <div className="w-full px-4">
+          <div className="w-full max-w-xl px-8">
             <ConversationStarters onSelectContext={handleContextSelect} />
           </div>
         </div>
 
-        <div className="flex flex-col p-4 overflow-y-auto">
-          <h1 className="text-2xl font-bold mb-4 flex-none">
-            Practice Spanish
-            {currentSession && (
-              <span className="text-sm font-normal text-muted-foreground ml-2">
-                Context: {currentSession.context}
-              </span>
-            )}
+        <div className="flex flex-col p-4 border-l overflow-y-auto">
+          <h1 className="text-xl font-semibold mb-4 flex-none">
+            Conversation History
           </h1>
 
           <ScrollArea className="flex-1">
             <div className="space-y-4 pr-4">
               {messages.map((message, i) => (
-                <Card key={i} className={message.type === "user" ? "bg-accent" : "bg-background"}>
+                <Card key={i} className={message.type === "user" ? "bg-accent/10" : "bg-background"}>
                   <CardContent className="p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 space-x-1 whitespace-pre-wrap break-words">
@@ -307,10 +307,10 @@ export default function Practice() {
                       </Collapsible>
                     )}
 
-                    {message.type === "teacher" && 
-                     message.corrections?.mistakes && 
-                     message.corrections.mistakes.length > 0 && 
-                     i > 0 && 
+                    {message.type === "teacher" &&
+                     message.corrections?.mistakes &&
+                     message.corrections.mistakes.length > 0 &&
+                     i > 0 &&
                      messages[i - 1].type === "user" && (
                       <div className="mt-2 p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
                         <div className="flex items-center gap-2 text-yellow-600 mb-2">
