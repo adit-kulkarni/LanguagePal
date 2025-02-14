@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface Message {
-  id?: number;  // Add unique ID
+  id?: number;  
   type: "user" | "teacher";
   content: string;
   corrections?: {
@@ -32,7 +32,7 @@ interface Message {
     }>;
   };
   translation?: string;
-  userMessageId?: number;  // Reference to the user message this teacher message is correcting
+  userMessageId?: number;  
 }
 
 interface TranslationCache {
@@ -113,7 +113,6 @@ export default function Practice() {
           context: data.session.context
         });
 
-        // Add the user message first with a unique ID
         const userMessageId = messageIdCounter;
         const userMessage: Message = { 
           id: userMessageId,
@@ -122,7 +121,6 @@ export default function Practice() {
         };
         setMessageIdCounter(prev => prev + 1);
 
-        // Then add teacher's response referencing the user message ID
         const teacherMessage: Message = {
           id: messageIdCounter,
           type: "teacher",
@@ -146,7 +144,6 @@ export default function Practice() {
       }
     }
 
-    // Add user message immediately with a unique ID
     const userMessageId = messageIdCounter;
     const userMessage: Message = { 
       id: userMessageId,
@@ -165,7 +162,6 @@ export default function Practice() {
 
       const data = await response.json();
 
-      // Add teacher's response with reference to the user message
       const teacherMessage: Message = {
         id: messageIdCounter,
         type: "teacher",
@@ -304,10 +300,12 @@ export default function Practice() {
                 className="w-32 h-32"
                 speaking={isSpeaking}
                 intensity={speakingIntensity}
+                hideText={true}
               />
             </div>
 
-            <div className="max-w-md text-center mb-12">
+            <div className="max-w-md text-center mb-12 space-y-2">
+              <p className="font-medium">Native Colombian Spanish teacher</p>
               <p className="text-lg text-muted-foreground">
                 Ready to help you practice Spanish
               </p>
