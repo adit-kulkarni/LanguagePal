@@ -294,7 +294,7 @@ export default function Practice() {
 
       <div className="flex-1 flex flex-col overflow-hidden bg-accent/5">
         {!currentSession ? (
-          <div className="flex-1 flex flex-col items-center justify-start py-12">
+          <div className="flex-1 flex flex-col items-center justify-start py-20">
             <div className="mb-16">
               <TeacherAvatar
                 className="w-32 h-32"
