@@ -307,10 +307,7 @@ export default function Practice() {
               />
             </div>
 
-            <div className="max-w-md text-center space-y-4 mb-8">
-              <h1 className="text-4xl font-bold tracking-tight">
-                ¡Bienvenidos a Spanish AI!
-              </h1>
+            <div className="max-w-md text-center mb-8">
               <p className="text-muted-foreground">
                 Ready to help you practice Spanish
               </p>
