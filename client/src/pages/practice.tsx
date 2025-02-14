@@ -311,7 +311,7 @@ export default function Practice() {
               </p>
             </div>
 
-            <div className="w-full max-w-xl px-8">
+            <div className="w-full max-w-xl px-8 mb-8">
               <ConversationStarters onSelectContext={handleContextSelect} />
             </div>
           </div>
