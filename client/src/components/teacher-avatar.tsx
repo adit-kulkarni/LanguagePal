@@ -33,10 +33,10 @@ export function TeacherAvatar({ className, speaking, intensity = 0, hideText = f
   }
 
   return (
-    <div className={cn("flex flex-col items-center gap-2", className)}>
+    <div className={cn("flex flex-col items-center", className)}>
       {avatar}
-      <div className="text-center">
-        <p className="text-xs text-muted-foreground">
+      <div className="text-center mt-4">
+        <p className="text-sm text-muted-foreground">
           Native Colombian Spanish teacher
         </p>
       </div>

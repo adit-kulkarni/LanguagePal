@@ -299,7 +299,7 @@ export default function Practice() {
       <div className="flex-1 flex flex-col overflow-hidden bg-accent/5">
         {!currentSession ? (
           <div className="flex-1 flex flex-col items-center justify-start py-12">
-            <div className="mb-12">
+            <div className="mb-16">
               <TeacherAvatar
                 className="w-32 h-32"
                 speaking={isSpeaking}
@@ -307,8 +307,8 @@ export default function Practice() {
               />
             </div>
 
-            <div className="max-w-md text-center mb-8">
-              <p className="text-muted-foreground">
+            <div className="max-w-md text-center mb-12">
+              <p className="text-lg text-muted-foreground">
                 Ready to help you practice Spanish
               </p>
             </div>
