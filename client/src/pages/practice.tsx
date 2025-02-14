@@ -99,6 +99,13 @@ export default function Practice() {
     initializeUser();
   }, []);
 
+  // Add useEffect to speak initial welcome message
+  React.useEffect(() => {
+    const initialMessage = "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!";
+    speak(initialMessage);
+  }, []); // Empty dependency array means this runs once when component mounts
+
+
   const handleSubmit = async (text: string) => {
     if (!currentSession) {
       try {
@@ -133,6 +140,7 @@ export default function Practice() {
 
         setMessages(prev => [...prev, userMessage, teacherMessage]);
         queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
+        speak(data.teacherResponse.message); // Added speak call here
         return;
       } catch (error) {
         toast({
@@ -197,13 +205,15 @@ export default function Practice() {
         context: data.session.context
       });
 
+      const teacherMessage = data.teacherResponse.message;
       setMessages([{
         id: messageIdCounter,
         type: "teacher",
-        content: data.teacherResponse.message,
+        content: teacherMessage,
         translation: data.teacherResponse.translation
       }]);
       setMessageIdCounter(prev => prev + 1);
+      speak(teacherMessage); // Added speak call here
 
       queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
     } catch (error) {
@@ -236,13 +246,15 @@ export default function Practice() {
 
   const handleNewChat = () => {
     setCurrentSession(null);
+    const welcomeMessage = "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!";
     setMessages([{
       id: messageIdCounter,
       type: "teacher",
-      content: "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!"
+      content: welcomeMessage
     }]);
     setMessageIdCounter(prev => prev + 1);
     queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
+    speak(welcomeMessage);
   };
 
   return (
