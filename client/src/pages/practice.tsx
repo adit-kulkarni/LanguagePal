@@ -299,17 +299,23 @@ export default function Practice() {
       <div className="flex-1 flex flex-col overflow-hidden bg-accent/5">
         {!currentSession ? (
           <div className="flex-1 flex flex-col items-center justify-start py-12">
-            <div className="mb-12 flex flex-col items-center">
+            <div className="mb-12">
               <TeacherAvatar
-                className="w-32 h-32 mb-8"
+                className="w-32 h-32"
                 speaking={isSpeaking}
                 intensity={speakingIntensity}
               />
-              <h2 className="text-xl font-semibold mb-2">Profesora Ana</h2>
-              <p className="text-sm text-muted-foreground">
+            </div>
+
+            <div className="max-w-md text-center space-y-4 mb-8">
+              <h1 className="text-4xl font-bold tracking-tight">
+                ¡Bienvenidos a Spanish AI!
+              </h1>
+              <p className="text-muted-foreground">
                 Ready to help you practice Spanish
               </p>
             </div>
+
             <div className="w-full max-w-xl px-8">
               <ConversationStarters onSelectContext={handleContextSelect} />
             </div>
