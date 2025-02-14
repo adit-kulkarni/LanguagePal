@@ -11,7 +11,7 @@ interface TeacherAvatarProps {
 export function TeacherAvatar({ className, speaking, intensity = 0, hideText = false }: TeacherAvatarProps) {
   const avatar = (
     <div className={cn(
-      "rounded-full p-2 transition-all duration-100",
+      "rounded-full p-4 transition-all duration-100",
       speaking && "bg-gradient-to-r from-blue-200 to-cyan-200"
     )}
       style={{
@@ -19,8 +19,7 @@ export function TeacherAvatar({ className, speaking, intensity = 0, hideText = f
       }}
     >
       <Avatar className={cn(
-        "w-24 h-24", 
-        "transition-transform duration-100", 
+        "w-full h-full",
         className
       )}>
         <AvatarImage src="https://api.dicebear.com/7.x/personas/svg?seed=teacher&backgroundColor=transparent" />
@@ -37,7 +36,7 @@ export function TeacherAvatar({ className, speaking, intensity = 0, hideText = f
     <div className={cn("flex flex-col items-center gap-2", className)}>
       {avatar}
       <div className="text-center">
-        <p className="text-xs text-muted-foreground max-w-[200px]">
+        <p className="text-xs text-muted-foreground">
           Native Colombian Spanish teacher
         </p>
       </div>

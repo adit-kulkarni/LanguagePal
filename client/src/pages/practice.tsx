@@ -301,7 +301,7 @@ export default function Practice() {
           <div className="flex-1 flex flex-col items-center justify-start py-12">
             <div className="mb-12 flex flex-col items-center">
               <TeacherAvatar
-                className="scale-[2] mb-16"
+                className="w-32 h-32 mb-8"
                 speaking={isSpeaking}
                 intensity={speakingIntensity}
               />
