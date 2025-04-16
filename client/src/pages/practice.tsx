@@ -308,7 +308,7 @@ export default function Practice() {
         translation: data.teacherResponse.translation
       }]);
       setMessageIdCounter(prev => prev + 1);
-      // Removed automatic speaking when selecting context
+      speak(teacherMessage, msgId); // Spanish conversations should still be spoken automatically
 
       queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
     } catch (error) {
