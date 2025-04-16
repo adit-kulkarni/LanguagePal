@@ -1,4 +1,5 @@
 import * as React from "react";
+import * as ReactDOM from "react-dom";
 import { TeacherAvatar } from "@/components/teacher-avatar";
 import { SpeechInput } from "@/components/speech-input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -267,47 +268,54 @@ export default function Practice() {
 
   return (
     <div className="h-screen overflow-hidden flex flex-col md:flex-row relative">
-      {/* Mobile sidebar (absolutely positioned overlay) */}
+      {/* Absolutely positioned mobile sidebar overlay */}
       {isMobile && isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop/overlay */}
+        <div
+          className="fixed inset-0 z-[9999]"
+          aria-hidden={!isMobileMenuOpen}
+        >
+          {/* Backdrop overlay */}
           <div 
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
+            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
             onClick={() => setIsMobileMenuOpen(false)}
           />
           
-          {/* Sidebar content */}
-          <div className="relative flex flex-col w-[85vw] max-w-[280px] h-full bg-background shadow-lg border-r animate-in slide-in-from-left">
-            <div className="p-3 border-b flex items-center justify-between">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 mr-2"
-                onClick={() => {
-                  handleNewChat();
-                  setIsMobileMenuOpen(false);
-                }}
-              >
-                New Chat
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 p-0"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <ConversationSidebar
-                userId={1}
-                currentSessionId={currentSession?.id}
-                onSelectSession={(session) => {
-                  handleSessionSelect(session);
-                  setIsMobileMenuOpen(false);
-                }}
-              />
+          {/* Sidebar container */}
+          <div 
+            className="absolute top-0 bottom-0 left-0 w-[85vw] max-w-[280px] bg-background shadow-xl border-r slide-in-sidebar"
+          >
+            <div className="h-full flex flex-col">
+              <div className="p-3 border-b flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 mr-2"
+                  onClick={() => {
+                    handleNewChat();
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  New Chat
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 p-0"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <ConversationSidebar
+                  userId={1}
+                  currentSessionId={currentSession?.id}
+                  onSelectSession={(session) => {
+                    handleSessionSelect(session);
+                    setIsMobileMenuOpen(false);
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>

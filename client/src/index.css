@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom animation for mobile sidebar */
+@keyframes slideInFromLeft {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.slide-in-sidebar {
+  animation: slideInFromLeft 0.25s ease-out forwards;
+}
+
 @layer base {
   * {
     @apply border-border;
