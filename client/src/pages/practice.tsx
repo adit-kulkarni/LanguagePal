@@ -198,6 +198,63 @@ export default function Practice() {
     console.log("[HMR TEST]", new Date().toISOString(), "- Testing hot module replacement");
     // Initial welcome message will be displayed but not spoken automatically
   }, []);
+  
+  // WebSocket connection for receiving corrections
+  React.useEffect(() => {
+    if (!currentSession) {
+      return; // Don't establish connection if not in a session
+    }
+    
+    // Create WebSocket connection with the specific path
+    const ws = new WebSocket(`ws://${window.location.host}/api/ws`);
+    
+    ws.onopen = () => {
+      console.log('WebSocket connection established');
+      // Subscribe to updates for the current session
+      ws.send(JSON.stringify({
+        type: 'subscribe',
+        sessionId: currentSession.id
+      }));
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'correction_update') {
+          console.log('Received correction update:', data);
+          
+          // Update the message with the new corrections
+          setMessages(prevMessages => {
+            return prevMessages.map(msg => {
+              if (msg.id === data.messageId) {
+                return {
+                  ...msg,
+                  corrections: data.corrections
+                };
+              }
+              return msg;
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+    
+    ws.onclose = () => {
+      console.log('WebSocket connection closed');
+    };
+    
+    // Clean up on unmount
+    return () => {
+      ws.close();
+    };
+  }, [currentSession]);
 
 
   const handleSubmit = async (text: string) => {

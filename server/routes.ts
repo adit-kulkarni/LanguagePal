@@ -5,6 +5,8 @@ import { getTeacherResponse, getQuickTeacherResponse, getCorrections } from "./o
 import { insertUserSchema, insertSessionSchema, insertMessageSchema } from "@shared/schema";
 import { translateWord } from "./dictionary";
 import { z } from "zod";
+import { WebSocketServer } from 'ws';
+import { wsConnections } from './index';
 
 // Add these helper functions at the top of the file
 function extractContextFromMessage(message: string): string {
@@ -179,8 +181,28 @@ export function registerRoutes(app: Express): Server {
             getCorrections(finalTranscript, user.settings, [])
                 .then(async (corrections) => {
                     // Update the message with corrections once they're available
-                    await storage.updateMessageCorrections(message.id, corrections);
+                    const updatedMessage = await storage.updateMessageCorrections(message.id, corrections);
                     console.log('Message updated with corrections');
+                    
+                    // Notify any connected WebSocket clients for this session
+                    if (wsConnections.has(session.id)) {
+                        const clients = wsConnections.get(session.id);
+                        if (clients && clients.size > 0) {
+                            const updatePayload = JSON.stringify({
+                                type: 'correction_update',
+                                messageId: message.id,
+                                corrections: corrections,
+                                sessionId: session.id
+                            });
+                            
+                            clients.forEach(client => {
+                                if (client.readyState === 1) { // WebSocket.OPEN
+                                    client.send(updatePayload);
+                                }
+                            });
+                            console.log(`Sent correction updates to ${clients.size} clients`);
+                        }
+                    }
                 })
                 .catch(error => {
                     console.error('Error getting corrections:', error);
@@ -250,8 +272,28 @@ export function registerRoutes(app: Express): Server {
             getCorrections(req.body.content, user.settings, recentMessages)
                 .then(async (corrections) => {
                     // Update the message with corrections
-                    await storage.updateMessageCorrections(teacherMessage.id, corrections);
+                    const updatedMessage = await storage.updateMessageCorrections(teacherMessage.id, corrections);
                     console.log('Message updated with corrections:', corrections);
+                    
+                    // Notify any connected WebSocket clients for this session
+                    if (wsConnections.has(sessionId)) {
+                        const clients = wsConnections.get(sessionId);
+                        if (clients && clients.size > 0) {
+                            const updatePayload = JSON.stringify({
+                                type: 'correction_update',
+                                messageId: teacherMessage.id,
+                                corrections: corrections,
+                                sessionId: sessionId
+                            });
+                            
+                            clients.forEach(client => {
+                                if (client.readyState === 1) { // WebSocket.OPEN
+                                    client.send(updatePayload);
+                                }
+                            });
+                            console.log(`Sent correction updates to ${clients.size} clients`);
+                        }
+                    }
                 })
                 .catch(error => {
                     console.error('Error getting corrections:', error);

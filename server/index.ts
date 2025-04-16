@@ -2,6 +2,10 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupAuth } from "./auth";
+import { WebSocket, WebSocketServer } from 'ws';
+
+// WebSocket connections map
+export const wsConnections = new Map<number, Set<WebSocket>>();
 
 const app = express();
 
@@ -46,6 +50,55 @@ app.use((req, res, next) => {
 (async () => {
   // Register API routes first
   const server = registerRoutes(app);
+  
+  // Setup WebSocket server with a specific path to avoid conflicts with Vite's WebSocket
+  const wss = new WebSocketServer({ 
+    server,
+    path: '/api/ws'
+  });
+  
+  wss.on('connection', (ws) => {
+    console.log('WebSocket client connected');
+    
+    // Handle session subscription messages
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        if (data.type === 'subscribe' && data.sessionId) {
+          const sessionId = parseInt(data.sessionId);
+          
+          if (!wsConnections.has(sessionId)) {
+            wsConnections.set(sessionId, new Set());
+          }
+          
+          // Add this connection to the session's subscribers
+          wsConnections.get(sessionId)?.add(ws);
+          console.log(`Client subscribed to session ${sessionId}`);
+          
+          // Send confirmation
+          ws.send(JSON.stringify({ 
+            type: 'subscribed', 
+            sessionId 
+          }));
+        }
+      } catch (err) {
+        console.error('Error processing WebSocket message:', err);
+      }
+    });
+    
+    // Handle disconnection
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected');
+      // Remove this connection from all sessions
+      wsConnections.forEach((connections, sessionId) => {
+        connections.delete(ws);
+        if (connections.size === 0) {
+          wsConnections.delete(sessionId);
+        }
+      });
+    });
+  });
 
   // API error handling middleware
   app.use("/api", (err: any, _req: Request, res: Response, _next: NextFunction) => {
