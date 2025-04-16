@@ -40,8 +40,19 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Network-first strategy with cache fallback
+// Bypass cache in development mode
 self.addEventListener('fetch', (event) => {
+  // Check if we're in development mode
+  const isDevelopment = self.location.hostname === 'localhost' || 
+                        self.location.hostname.includes('replit') ||
+                        self.location.hostname.includes('.repl.co');
+
+  // For development, always go to network and never cache
+  if (isDevelopment) {
+    console.log('Service Worker: Development mode - bypassing cache for', event.request.url);
+    return;
+  }
+
   // Skip cross-origin requests
   if (!event.request.url.startsWith(self.location.origin)) {
     return;

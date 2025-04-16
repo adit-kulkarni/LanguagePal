@@ -510,8 +510,8 @@ export default function Practice() {
                   />
                   {currentWord && (
                     <div className="min-h-[50px] flex items-center">
-                      <Badge variant="secondary" className="text-xl px-6 py-2 bg-primary/95 text-white shadow-md animate-pulse">
-                        {currentWord}
+                      <Badge variant="secondary" className="text-xl px-6 py-2 bg-green-600 text-white shadow-md animate-pulse">
+                        ★ {currentWord} ★
                       </Badge>
                     </div>
                   )}
