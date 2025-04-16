@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <rect width="192" height="192" fill="#3b82f6" rx="48" />
+  <g transform="translate(48, 36)">
+    <!-- Teacher Avatar -->
+    <circle cx="48" cy="48" r="40" fill="#ffffff" />
+    <!-- Face -->
+    <circle cx="48" cy="42" r="26" fill="#ffe4c4" />
+    <!-- Hair -->
+    <path d="M22 42C22 28.7452 32.7452 18 46 18H50C63.2548 18 74 28.7452 74 42V44C74 44 74 52 48 52C22 52 22 44 22 44V42Z" fill="#4b3621" />
+    <!-- Glasses -->
+    <rect x="30" y="38" width="36" height="8" rx="4" fill="#3b3b3b" />
+    <circle cx="36" cy="42" r="6" fill="#3b3b3b" stroke="#ffffff" stroke-width="1" />
+    <circle cx="60" cy="42" r="6" fill="#3b3b3b" stroke="#ffffff" stroke-width="1" />
+    <!-- Smile -->
+    <path d="M38 52C38 52 44 56 58 52" stroke="#000000" stroke-width="2" stroke-linecap="round" />
+    <!-- Spanish Flag Elements -->
+    <rect x="20" y="85" width="56" height="15" fill="#c60b1e" />
+    <rect x="20" y="100" width="56" height="15" fill="#ffc400" />
+    <rect x="20" y="115" width="56" height="5" fill="#c60b1e" />
+    <text x="48" y="108" font-family="Arial" font-size="12" text-anchor="middle" fill="#000">¡Hola!</text>
+  </g>
+</svg>
