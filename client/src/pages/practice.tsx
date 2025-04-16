@@ -193,13 +193,11 @@ export default function Practice() {
     initializeUser();
   }, []);
 
-  // Add useEffect to speak initial welcome message
+  // Log for HMR testing only
   React.useEffect(() => {
     console.log("[HMR TEST]", new Date().toISOString(), "- Testing hot module replacement");
-    const initialMessage = "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!";
-    // Since this is the initial message, we'll just use the ID of the first message (0)
-    speak(initialMessage, 0);
-  }, []); // Empty dependency array means this runs once when component mounts
+    // Initial welcome message will be displayed but not spoken automatically
+  }, []);
 
 
   const handleSubmit = async (text: string) => {
@@ -310,7 +308,7 @@ export default function Practice() {
         translation: data.teacherResponse.translation
       }]);
       setMessageIdCounter(prev => prev + 1);
-      speak(teacherMessage, msgId); // Pass the message ID
+      // Removed automatic speaking when selecting context
 
       queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
     } catch (error) {
@@ -352,7 +350,7 @@ export default function Practice() {
     }]);
     setMessageIdCounter(prev => prev + 1);
     queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
-    speak(welcomeMessage, msgId);
+    // Removed automatic speaking when creating a new chat
   };
 
   return (
