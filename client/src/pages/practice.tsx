@@ -205,54 +205,68 @@ export default function Practice() {
       return; // Don't establish connection if not in a session
     }
     
-    // Create WebSocket connection with the specific path
-    const ws = new WebSocket(`ws://${window.location.host}/api/ws`);
+    let ws: WebSocket | null = null;
     
-    ws.onopen = () => {
-      console.log('WebSocket connection established');
-      // Subscribe to updates for the current session
-      ws.send(JSON.stringify({
-        type: 'subscribe',
-        sessionId: currentSession.id
-      }));
-    };
-    
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === 'correction_update') {
-          console.log('Received correction update:', data);
-          
-          // Update the message with the new corrections
-          setMessages(prevMessages => {
-            return prevMessages.map(msg => {
-              if (msg.id === data.messageId) {
-                return {
-                  ...msg,
-                  corrections: data.corrections
-                };
-              }
-              return msg;
-            });
-          });
+    try {
+      // Create WebSocket connection with the specific path
+      // Use secure WebSocket if the page is loaded over HTTPS
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}/api/ws`);
+      
+      ws.onopen = () => {
+        console.log('WebSocket connection established');
+        // Subscribe to updates for the current session
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'subscribe',
+            sessionId: currentSession.id
+          }));
         }
-      } catch (error) {
-        console.error('Error processing WebSocket message:', error);
-      }
-    };
-    
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-    
-    ws.onclose = () => {
-      console.log('WebSocket connection closed');
-    };
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'correction_update') {
+            console.log('Received correction update:', data);
+            
+            // Update the message with the new corrections
+            setMessages(prevMessages => {
+              return prevMessages.map(msg => {
+                if (msg.id === data.messageId) {
+                  return {
+                    ...msg,
+                    corrections: data.corrections
+                  };
+                }
+                return msg;
+              });
+            });
+          }
+        } catch (error) {
+          console.error('Error processing WebSocket message:', error);
+        }
+      };
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+      
+      ws.onclose = (event) => {
+        console.log('WebSocket connection closed', event.code, event.reason);
+      };
+    } catch (error) {
+      console.error('Failed to establish WebSocket connection:', error);
+    }
     
     // Clean up on unmount
     return () => {
-      ws.close();
+      if (ws) {
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close();
+        }
+      }
     };
   }, [currentSession]);
 
