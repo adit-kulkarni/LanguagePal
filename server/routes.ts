@@ -1,7 +1,7 @@
 import { Express } from "express";
 import { createServer, Server } from "http";
 import { storage } from "./storage";
-import { getTeacherResponse } from "./openai";
+import { getTeacherResponse, getQuickTeacherResponse, getCorrections } from "./openai";
 import { insertUserSchema, insertSessionSchema, insertMessageSchema } from "@shared/schema";
 import { translateWord } from "./dictionary";
 import { z } from "zod";
@@ -141,11 +141,10 @@ export function registerRoutes(app: Express): Server {
                 lastMessageAt: new Date()
             });
 
-            // Get teacher's response
-            const teacherResponse = await getTeacherResponse(
+            // Get quick response first for immediate feedback
+            const quickResponse = await getQuickTeacherResponse(
                 finalTranscript,
-                user.settings,
-                [] // No previous messages for a new conversation
+                user.settings
             );
 
             // Save initial messages
@@ -158,18 +157,34 @@ export function registerRoutes(app: Express): Server {
                 });
             }
 
-            // Save teacher's message
+            // Save teacher's quick message (we'll update it later with corrections)
             const message = await storage.createMessage({
                 sessionId: session.id,
                 type: "teacher",
-                content: teacherResponse.message,
-                translation: teacherResponse.translation
+                content: quickResponse.message,
+                translation: quickResponse.translation
             });
 
-            return res.json({
+            // Send the quick response immediately
+            res.json({
                 session,
-                teacherResponse
+                teacherResponse: {
+                    message: quickResponse.message,
+                    translation: quickResponse.translation,
+                    corrections: { mistakes: [] }
+                }
             });
+
+            // Start a background process to get corrections
+            getCorrections(finalTranscript, user.settings, [])
+                .then(async (corrections) => {
+                    // Update the message with corrections once they're available
+                    await storage.updateMessageCorrections(message.id, corrections);
+                    console.log('Message updated with corrections');
+                })
+                .catch(error => {
+                    console.error('Error getting corrections:', error);
+                });
         } catch (error) {
             console.error('Conversation error:', error);
             res.status(500).json({ message: "Failed to start conversation" });
@@ -195,40 +210,52 @@ export function registerRoutes(app: Express): Server {
             const recentMessages = await storage.getRecentMessages(sessionId, 5);
 
             console.log('Received user message:', req.body.content);
-            const teacherResponse = await getTeacherResponse(
-                req.body.content,
-                user.settings,
-                recentMessages
-            );
-            console.log('OpenAI response with corrections:', teacherResponse);
-
-            // Save user's message
+            
+            // Save user's message right away
             const userMessage = await storage.createMessage({
                 sessionId,
                 type: "user",
                 content: req.body.content
             });
 
-            // Save teacher's response with corrections
+            // Get quick response for immediate feedback
+            const quickResponse = await getQuickTeacherResponse(
+                req.body.content,
+                user.settings
+            );
+
+            // Save teacher's quick response
             const teacherMessage = await storage.createMessage({
                 sessionId,
                 type: "teacher",
-                content: teacherResponse.message,
-                translation: teacherResponse.translation,
-                corrections: teacherResponse.corrections // Make sure corrections are included
+                content: quickResponse.message,
+                translation: quickResponse.translation
             });
 
-            console.log('Sending response with corrections:', {
+            // Send immediate response to client
+            const immediateResponse = {
                 userMessage,
                 teacherMessage,
-                teacherResponse
-            });
+                teacherResponse: {
+                    message: quickResponse.message,
+                    translation: quickResponse.translation,
+                    corrections: { mistakes: [] }
+                }
+            };
+            
+            console.log('Sending immediate response:', immediateResponse);
+            res.json(immediateResponse);
 
-            res.json({ 
-                userMessage, 
-                teacherMessage,
-                teacherResponse  // Include full teacher response with corrections
-            });
+            // In the background, get more detailed corrections
+            getCorrections(req.body.content, user.settings, recentMessages)
+                .then(async (corrections) => {
+                    // Update the message with corrections
+                    await storage.updateMessageCorrections(teacherMessage.id, corrections);
+                    console.log('Message updated with corrections:', corrections);
+                })
+                .catch(error => {
+                    console.error('Error getting corrections:', error);
+                });
         } catch (error) {
             console.error('Message error:', error);
             res.status(500).json({ message: "Failed to process message" });

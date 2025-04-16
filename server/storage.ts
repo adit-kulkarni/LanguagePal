@@ -25,6 +25,7 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   getSessionMessages(sessionId: number): Promise<Message[]>;
   getRecentMessages(sessionId: number, limit?: number): Promise<Message[]>;
+  updateMessageCorrections(messageId: number, corrections: Message["corrections"]): Promise<Message>;
 
   // Express session store
   sessionStore: session.Store;
@@ -145,6 +146,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(messages.sessionId, sessionId))
       .orderBy(desc(messages.createdAt))
       .limit(limit);
+  }
+  
+  async updateMessageCorrections(messageId: number, corrections: Message["corrections"]): Promise<Message> {
+    const [updatedMessage] = await db
+      .update(messages)
+      .set({ corrections })
+      .where(eq(messages.id, messageId))
+      .returning();
+      
+    if (!updatedMessage) throw new Error("Message not found");
+    return updatedMessage;
   }
 }
 

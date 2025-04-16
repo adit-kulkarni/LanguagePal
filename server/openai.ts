@@ -65,12 +65,194 @@ function extractConversationContext(messages: { content: string; type: string }[
   return context;
 }
 
+// Simple in-memory cache for fast responses
+const responseCache = new Map<string, TeacherResponse>();
+const MAX_CACHE_SIZE = 100;
+
+// Fast response generation without waiting for corrections
+export async function getQuickTeacherResponse(
+  transcript: string,
+  settings: { grammarTenses: string[]; vocabularySets: string[] }
+): Promise<Pick<TeacherResponse, 'message' | 'translation'>> {
+  // Check cache first
+  const cacheKey = `quick:${transcript}`;
+  const cachedResponse = responseCache.get(cacheKey);
+  if (cachedResponse) {
+    console.log('Using cached quick response');
+    return {
+      message: cachedResponse.message,
+      translation: cachedResponse.translation
+    };
+  }
+
+  const isContextStart = transcript.startsWith("START_CONTEXT:");
+  const context = isContextStart ? transcript.replace("START_CONTEXT:", "").trim() : "";
+
+  // Simplified prompt for fast response
+  const messages = [
+    {
+      role: "system" as const,
+      content: `You are Profesora Ana, a Spanish teacher. Respond in JSON format:
+{
+  "message": "Your response in Spanish",
+  "translation": "English translation"
+}
+
+Keep it brief and natural. This is about: ${context || "general conversation"}.
+Use only these grammar tenses: ${settings.grammarTenses.join(", ")}.
+Use vocabulary from: ${settings.vocabularySets.join(", ")}.`
+    },
+    {
+      role: "user" as const,
+      content: transcript
+    }
+  ];
+
+  try {
+    // Use gpt-3.5-turbo for quick responses
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages,
+      temperature: 0.7,
+      max_tokens: 150 // Limit token count for faster response
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new Error("No quick response received from OpenAI");
+    }
+
+    console.log('Quick OpenAI response:', content);
+    
+    try {
+      const parsed = JSON.parse(content) as Pick<TeacherResponse, 'message' | 'translation'>;
+      
+      // Add to cache - maintain cache size
+      if (responseCache.size >= MAX_CACHE_SIZE) {
+        // Remove oldest entry (first key)
+        const firstKey = responseCache.keys().next().value;
+        responseCache.delete(firstKey);
+      }
+      
+      // Store partial response in cache
+      responseCache.set(cacheKey, {
+        message: parsed.message,
+        translation: parsed.translation,
+        corrections: { mistakes: [] }
+      });
+      
+      return parsed;
+    } catch (parseError) {
+      console.error('Failed to parse quick response:', parseError);
+      // If parsing fails, return a basic response
+      return {
+        message: "Un momento, por favor...",
+        translation: "One moment, please..."
+      };
+    }
+  } catch (error) {
+    console.error('Quick response API error:', error);
+    return {
+      message: "Un momento, por favor...",
+      translation: "One moment, please..."
+    };
+  }
+}
+
+// Get detailed corrections after the initial response
+export async function getCorrections(
+  transcript: string,
+  settings: { grammarTenses: string[]; vocabularySets: string[] },
+  previousMessages: { type: string; content: string }[] = []
+): Promise<TeacherResponse['corrections']> {
+  const cacheKey = `corrections:${transcript}`;
+  const cachedResponse = responseCache.get(cacheKey);
+  if (cachedResponse?.corrections) {
+    console.log('Using cached corrections');
+    return cachedResponse.corrections;
+  }
+
+  const messages = [
+    {
+      role: "system" as const,
+      content: `You are a Spanish language error detection expert. 
+Analyze ONLY this text: "${transcript}"
+
+Respond in JSON format with ONLY corrections:
+{
+  "mistakes": [
+    {
+      "original": "incorrect phrase",
+      "correction": "correct version",
+      "explanation": "Clear explanation in English",
+      "explanation_es": "Clear explanation in Spanish",
+      "type": "grammar | vocabulary | punctuation"
+    }
+  ]
+}
+
+If there are no errors, return an empty mistakes array.`
+    }
+  ];
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages,
+      temperature: 0.3,
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) {
+      return { mistakes: [] };
+    }
+
+    console.log('Corrections response:', content);
+
+    try {
+      const parsed = JSON.parse(content) as TeacherResponse['corrections'];
+      
+      // Filter corrections to ensure they only apply to the current message
+      if (parsed.mistakes) {
+        parsed.mistakes = parsed.mistakes.filter(mistake => 
+          transcript.includes(mistake.original)
+        );
+      } else {
+        parsed.mistakes = [];
+      }
+      
+      // Cache the corrections
+      responseCache.set(cacheKey, {
+        message: "",
+        translation: "",
+        corrections: parsed
+      });
+      
+      return parsed;
+    } catch (parseError) {
+      console.error('Failed to parse corrections:', parseError);
+      return { mistakes: [] };
+    }
+  } catch (error) {
+    console.error('Corrections API error:', error);
+    return { mistakes: [] };
+  }
+}
+
 export async function getTeacherResponse(
   transcript: string,
   settings: { grammarTenses: string[]; vocabularySets: string[] },
   previousMessages: { type: string; content: string }[] = []
 ): Promise<TeacherResponse> {
   console.log('Transcript received:', transcript);
+
+  // Check full cache first
+  const cacheKey = `full:${transcript}`;
+  const cachedResponse = responseCache.get(cacheKey);
+  if (cachedResponse) {
+    console.log('Using cached full response');
+    return cachedResponse;
+  }
 
   const isContextStart = transcript.startsWith("START_CONTEXT:");
   const context = isContextStart ? transcript.replace("START_CONTEXT:", "").trim() : "";
@@ -186,6 +368,14 @@ Follow these STRICT rules:
     parsed.corrections.mistakes = parsed.corrections.mistakes.filter(mistake => {
       return transcript.includes(mistake.original);
     });
+
+    // Cache the full response
+    if (responseCache.size >= MAX_CACHE_SIZE) {
+      // Remove oldest entry (first key)
+      const firstKey = responseCache.keys().next().value;
+      responseCache.delete(firstKey);
+    }
+    responseCache.set(cacheKey, parsed);
 
     return parsed;
   } catch (error) {
