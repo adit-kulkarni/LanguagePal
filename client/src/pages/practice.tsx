@@ -489,12 +489,28 @@ export default function Practice() {
               </CardContent>
             </Card>
 
-            {/* Word-by-word subtitle display */}
-            {isSpeaking && currentWord && (
-              <div className="fixed bottom-[120px] left-0 right-0 flex justify-center z-50 pointer-events-none">
-                <Badge variant="secondary" className="text-lg px-4 py-2 bg-primary/90 text-white shadow-lg animate-pulse">
-                  {currentWord}
-                </Badge>
+            {/* Word-by-word subtitle with avatar popup */}
+            {isSpeaking && (
+              <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+                {/* Semi-transparent overlay */}
+                <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]"></div>
+                
+                {/* Popup content */}
+                <div className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-xl p-6 flex flex-col items-center max-w-[300px] animate-in fade-in zoom-in-95 duration-300 relative">
+                  <TeacherAvatar
+                    className="w-24 h-24 mb-4"
+                    speaking={isSpeaking}
+                    intensity={speakingIntensity}
+                    hideText={false}
+                  />
+                  {currentWord && (
+                    <div className="min-h-[50px] flex items-center">
+                      <Badge variant="secondary" className="text-xl px-6 py-2 bg-primary/95 text-white shadow-md animate-pulse">
+                        {currentWord}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             
