@@ -267,54 +267,63 @@ export default function Practice() {
 
   return (
     <div className="h-screen overflow-hidden flex flex-col md:flex-row relative">
-      {/* Mobile header with menu button and sheet overlay */}
+      {/* Mobile sidebar (absolutely positioned overlay) */}
+      {isMobile && isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Backdrop/overlay */}
+          <div 
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          
+          {/* Sidebar content */}
+          <div className="relative flex flex-col w-[85vw] max-w-[280px] h-full bg-background shadow-lg border-r animate-in slide-in-from-left">
+            <div className="p-3 border-b flex items-center justify-between">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 mr-2"
+                onClick={() => {
+                  handleNewChat();
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                New Chat
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 p-0"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <ConversationSidebar
+                userId={1}
+                currentSessionId={currentSession?.id}
+                onSelectSession={(session) => {
+                  handleSessionSelect(session);
+                  setIsMobileMenuOpen(false);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Mobile header with menu button */}
       {isMobile && (
         <div className="h-14 border-b px-4 flex items-center justify-between sticky top-0 bg-background z-20">
-          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 p-0">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent 
-              side="left" 
-              className="p-0 w-[85vw] max-w-[280px] border-r shadow-lg"
-            >
-              <div className="flex flex-col h-full">
-                <div className="p-3 border-b flex items-center justify-between">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 mr-2"
-                    onClick={() => {
-                      handleNewChat();
-                      setIsMobileMenuOpen(false);
-                    }}
-                  >
-                    New Chat
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 p-0"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                  <ConversationSidebar
-                    userId={1}
-                    currentSessionId={currentSession?.id}
-                    onSelectSession={(session) => {
-                      handleSessionSelect(session);
-                      setIsMobileMenuOpen(false);
-                    }}
-                  />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-9 w-9 p-0"
+            onClick={() => setIsMobileMenuOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           <h1 className="font-bold text-lg">Spanish Practice</h1>
           {currentSession && (
             <Button 
