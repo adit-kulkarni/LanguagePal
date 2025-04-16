@@ -460,16 +460,20 @@ export default function Practice() {
         {!currentSession ? (
           <div className="flex-1 flex flex-col items-center justify-between py-4 md:py-8">
             <div className="flex-none mb-4 md:mb-8">
-              <TeacherAvatar
-                className={cn("md:w-32 md:h-32", isMobile ? "w-24 h-24" : "")}
-                speaking={isSpeaking}
-                intensity={speakingIntensity}
-                hideText={true}
-              />
+              <div className="flex flex-col items-center">
+                <TeacherAvatar
+                  className={cn("md:w-32 md:h-32", isMobile ? "w-24 h-24" : "")}
+                  speaking={isSpeaking}
+                  intensity={speakingIntensity}
+                  hideText={true}
+                />
+                <p className="text-muted-foreground mt-4 text-center">
+                  Native Colombian Spanish teacher
+                </p>
+              </div>
             </div>
 
             <div className="flex-none max-w-md text-center mb-4 md:mb-8 px-4 space-y-2">
-              <p className="font-medium">Native Colombian Spanish teacher</p>
               <p className="text-lg text-muted-foreground">
                 Ready to help you practice Spanish
               </p>
@@ -501,7 +505,7 @@ export default function Practice() {
                     className="w-24 h-24 mb-4"
                     speaking={isSpeaking}
                     intensity={speakingIntensity}
-                    hideText={false}
+                    hideText={true}
                   />
                   {currentWord && (
                     <div className="min-h-[50px] flex items-center">
