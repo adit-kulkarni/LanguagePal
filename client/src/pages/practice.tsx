@@ -138,7 +138,8 @@ export default function Practice() {
   // Add useEffect to speak initial welcome message
   React.useEffect(() => {
     const initialMessage = "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!";
-    speak(initialMessage);
+    // Since this is the initial message, we'll just use the ID of the first message (0)
+    speak(initialMessage, 0);
   }, []); // Empty dependency array means this runs once when component mounts
 
 
@@ -217,7 +218,7 @@ export default function Practice() {
       setMessageIdCounter(prev => prev + 1);
 
       setMessages(prev => [...prev, teacherMessage]);
-      speak(data.teacherResponse.message);
+      speak(data.teacherResponse.message, teacherMessage.id);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -242,14 +243,15 @@ export default function Practice() {
       });
 
       const teacherMessage = data.teacherResponse.message;
+      const msgId = messageIdCounter;
       setMessages([{
-        id: messageIdCounter,
+        id: msgId,
         type: "teacher",
         content: teacherMessage,
         translation: data.teacherResponse.translation
       }]);
       setMessageIdCounter(prev => prev + 1);
-      speak(teacherMessage); // Added speak call here
+      speak(teacherMessage, msgId); // Pass the message ID
 
       queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
     } catch (error) {
@@ -283,14 +285,15 @@ export default function Practice() {
   const handleNewChat = () => {
     setCurrentSession(null);
     const welcomeMessage = "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!";
+    const msgId = messageIdCounter;
     setMessages([{
-      id: messageIdCounter,
+      id: msgId,
       type: "teacher",
       content: welcomeMessage
     }]);
     setMessageIdCounter(prev => prev + 1);
     queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
-    speak(welcomeMessage);
+    speak(welcomeMessage, msgId);
   };
 
   return (
