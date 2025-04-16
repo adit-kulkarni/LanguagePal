@@ -171,6 +171,7 @@ export default function Practice() {
 
   // Add useEffect to speak initial welcome message
   React.useEffect(() => {
+    console.log("[HMR TEST]", new Date().toISOString(), "- Testing hot module replacement");
     const initialMessage = "¡Hola! I'm Profesora Ana. Select a conversation context to begin, or start speaking!";
     // Since this is the initial message, we'll just use the ID of the first message (0)
     speak(initialMessage, 0);
