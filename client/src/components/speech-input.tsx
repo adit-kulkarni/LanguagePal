@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, MicOff } from "lucide-react";
+import { Send, Mic, MicOff } from "lucide-react";
 import { speechService } from "@/lib/speech";
+import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface SpeechInputProps {
   onSubmit: (text: string) => void;
@@ -11,6 +13,7 @@ interface SpeechInputProps {
 export function SpeechInput({ onSubmit }: SpeechInputProps) {
   const [text, setText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const isMobile = useIsMobile();
 
   const toggleRecording = () => {
     if (isRecording) {
@@ -39,30 +42,55 @@ export function SpeechInput({ onSubmit }: SpeechInputProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
+    <div className="space-y-3">
+      <div className="flex items-end gap-2">
         <Button 
           variant={isRecording ? "destructive" : "default"}
-          size="icon"
+          size={isMobile ? "sm" : "icon"}
           onClick={toggleRecording}
+          className={cn(
+            "flex-shrink-0",
+            isMobile ? "h-9 w-9 p-0" : ""
+          )}
         >
-          {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          {isRecording ? 
+            <MicOff className={isMobile ? "h-4 w-4" : "h-4 w-4"} /> : 
+            <Mic className={isMobile ? "h-4 w-4" : "h-4 w-4"} />
+          }
         </Button>
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Your speech will appear here..."
-          className="min-h-[100px]"
-        />
+        <div className="flex-1 flex flex-col md:flex-row gap-2 md:items-end">
+          <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type or speak Spanish here..."
+            className={cn(
+              "resize-none flex-1",
+              isMobile ? "min-h-[80px] text-sm" : "min-h-[100px]"
+            )}
+          />
+          <Button 
+            className={cn(
+              "flex-shrink-0",
+              isMobile ? "h-9 w-9 p-0" : ""
+            )}
+            size={isMobile ? "sm" : "default"}
+            onClick={handleSubmit}
+            disabled={!text.trim()}
+          >
+            {isMobile ? (
+              <Send className="h-4 w-4" />
+            ) : (
+              "Submit"
+            )}
+          </Button>
+        </div>
       </div>
-      <Button 
-        className="w-full" 
-        onClick={handleSubmit}
-        disabled={!text.trim()}
-      >
-        Submit
-      </Button>
+      {isRecording && (
+        <div className="text-center text-xs text-muted-foreground animate-pulse">
+          Listening... Speak in Spanish
+        </div>
+      )}
     </div>
   );
 }

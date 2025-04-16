@@ -5,17 +5,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { AlertCircle, Volume2, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertCircle, Volume2, ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { ConversationStarters } from "@/components/conversation-starters";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Message {
   id?: number;  
@@ -57,7 +63,9 @@ export default function Practice() {
   const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
   const queryClient = useQueryClient();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [messageIdCounter, setMessageIdCounter] = React.useState(1);
+  const isMobile = useIsMobile();
 
   const speak = React.useCallback((text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
@@ -258,104 +266,164 @@ export default function Practice() {
   };
 
   return (
-    <div className="h-screen overflow-hidden flex">
-      <div 
-        className={cn(
-          "border-r h-full overflow-hidden flex flex-col transition-all duration-300",
-          isSidebarCollapsed ? "w-12" : "w-72"
-        )}
-      >
-        <div className={cn(
-          "flex items-center transition-all duration-300",
-          isSidebarCollapsed ? "justify-center p-2" : "p-4 border-b"
-        )}>
-          {!isSidebarCollapsed && (
-            <Button
-              variant="outline"
-              className="w-full mr-2"
+    <div className="h-screen overflow-hidden flex flex-col md:flex-row">
+      {/* Mobile header with menu button */}
+      {isMobile && (
+        <div className="h-14 border-b px-4 flex items-center justify-between">
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-72 max-w-[80vw]">
+              <div className="flex flex-col h-full">
+                <div className="p-4 border-b">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      handleNewChat();
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    New Chat
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  <ConversationSidebar
+                    userId={1}
+                    currentSessionId={currentSession?.id}
+                    onSelectSession={(session) => {
+                      handleSessionSelect(session);
+                      setIsMobileMenuOpen(false);
+                    }}
+                  />
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+          <h1 className="font-bold text-lg">Spanish Practice</h1>
+          {currentSession && (
+            <Button 
+              variant="ghost" 
+              size="icon"
               onClick={handleNewChat}
             >
-              New Chat
+              <X className="h-5 w-5" />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="flex-shrink-0"
-          >
-            {isSidebarCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </Button>
         </div>
+      )}
 
-        <div className={cn(
-          "flex-1 overflow-y-auto",
-          isSidebarCollapsed && "hidden"
-        )}>
-          <ConversationSidebar
-            userId={1}
-            currentSessionId={currentSession?.id}
-            onSelectSession={handleSessionSelect}
-          />
+      {/* Desktop sidebar */}
+      {!isMobile && (
+        <div 
+          className={cn(
+            "border-r h-full overflow-hidden flex flex-col transition-all duration-300",
+            isSidebarCollapsed ? "w-12" : "w-72"
+          )}
+        >
+          <div className={cn(
+            "flex items-center transition-all duration-300",
+            isSidebarCollapsed ? "justify-center p-2" : "p-4 border-b"
+          )}>
+            {!isSidebarCollapsed && (
+              <Button
+                variant="outline"
+                className="w-full mr-2"
+                onClick={handleNewChat}
+              >
+                New Chat
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="flex-shrink-0"
+            >
+              {isSidebarCollapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronLeft className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+
+          <div className={cn(
+            "flex-1 overflow-y-auto",
+            isSidebarCollapsed && "hidden"
+          )}>
+            <ConversationSidebar
+              userId={1}
+              currentSessionId={currentSession?.id}
+              onSelectSession={handleSessionSelect}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex-1 flex flex-col overflow-hidden bg-accent/5">
         {!currentSession ? (
-          <div className="flex-1 flex flex-col items-center justify-between py-8">
-            <div className="flex-none mb-8">
+          <div className="flex-1 flex flex-col items-center justify-between py-4 md:py-8">
+            <div className="flex-none mb-4 md:mb-8">
               <TeacherAvatar
-                className="w-32 h-32"
+                className={cn("md:w-32 md:h-32", isMobile ? "w-24 h-24" : "")}
                 speaking={isSpeaking}
                 intensity={speakingIntensity}
                 hideText={true}
               />
             </div>
 
-            <div className="flex-none max-w-md text-center mb-8 space-y-2">
+            <div className="flex-none max-w-md text-center mb-4 md:mb-8 px-4 space-y-2">
               <p className="font-medium">Native Colombian Spanish teacher</p>
               <p className="text-lg text-muted-foreground">
                 Ready to help you practice Spanish
               </p>
             </div>
 
-            <div className="flex-none w-full max-w-xl px-8 mb-8">
+            <div className="flex-none w-full max-w-xl px-4 md:px-8 mb-4 md:mb-8">
               <ConversationStarters onSelectContext={handleContextSelect} />
             </div>
           </div>
         ) : (
           <div className="flex-1 flex flex-col h-full">
-            <Card className="mx-8 mt-4 bg-accent/10">
-              <CardContent className="p-4">
+            <Card className="mx-4 md:mx-8 mt-2 md:mt-4 bg-accent/10">
+              <CardContent className="p-3 md:p-4">
                 <p className="text-sm text-center text-muted-foreground">
                   Current context: {currentSession.context}
                 </p>
               </CardContent>
             </Card>
 
-            <ScrollArea className="flex-1 px-8 py-4">
+            <ScrollArea className="flex-1 px-4 md:px-8 py-2 md:py-4">
               <div className="space-y-4 max-w-3xl mx-auto">
                 {messages.map((message, i) => (
-                  <Card key={message.id} className={message.type === "user" ? "bg-accent/10" : "bg-background"}>
-                    <CardContent className="p-4 space-y-2">
-                      <div className="flex items-center gap-4">
+                  <Card 
+                    key={message.id} 
+                    className={cn(
+                      message.type === "user" ? "bg-accent/10" : "bg-background",
+                      isMobile && "border-l-4",
+                      isMobile && message.type === "user" ? "border-l-primary/70" : "",
+                      isMobile && message.type === "teacher" ? "border-l-secondary/70" : ""
+                    )}
+                  >
+                    <CardContent className={cn("space-y-2", isMobile ? "p-3" : "p-4")}>
+                      <div className="flex items-start gap-3">
                         {message.type === "teacher" && (
-                          <div className="flex-shrink-0">
+                          <div className="flex-shrink-0 pt-1">
                             <TeacherAvatar
-                              className="w-8 h-8"
+                              className={isMobile ? "w-6 h-6" : "w-8 h-8"}
                               speaking={isSpeaking && i === messages.length - 1}
                               intensity={speakingIntensity}
                               hideText={true}
                             />
                           </div>
                         )}
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 space-x-1 whitespace-pre-wrap break-words">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 whitespace-pre-wrap break-words text-sm md:text-base">
                               {message.content}
                             </div>
                             {message.type === "teacher" && (
@@ -363,7 +431,7 @@ export default function Practice() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => speak(message.content)}
-                                className="flex-shrink-0 ml-2"
+                                className="flex-shrink-0 h-8 w-8 ml-1"
                               >
                                 <Volume2 className="h-4 w-4" />
                               </Button>
@@ -373,12 +441,16 @@ export default function Practice() {
                           {message.type === "teacher" && message.translation && (
                             <Collapsible className="mt-2">
                               <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="sm" className="p-0 h-6 text-muted-foreground hover:text-foreground">
-                                  <ChevronRight className="h-4 w-4 mr-1" />
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="p-0 h-6 text-xs md:text-sm text-muted-foreground hover:text-foreground"
+                                >
+                                  <ChevronRight className="h-3 w-3 mr-1" />
                                   Show translation
                                 </Button>
                               </CollapsibleTrigger>
-                              <CollapsibleContent className="pt-2 text-sm text-muted-foreground">
+                              <CollapsibleContent className="pt-2 text-xs md:text-sm text-muted-foreground">
                                 {message.translation}
                               </CollapsibleContent>
                             </Collapsible>
@@ -389,17 +461,17 @@ export default function Practice() {
                            message.corrections.mistakes.length > 0 &&
                            message.userMessageId !== undefined &&
                            messages.find(m => m.id === message.userMessageId)?.type === "user" && (
-                            <div className="mt-2 p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
-                              <div className="flex items-center gap-2 text-yellow-600 mb-2">
-                                <AlertCircle className="h-4 w-4" />
-                                <span className="text-sm font-medium">Corrections:</span>
+                            <div className="mt-2 p-2 md:p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
+                              <div className="flex items-center gap-2 text-yellow-600 mb-1 md:mb-2">
+                                <AlertCircle className="h-3 w-3 md:h-4 md:w-4" />
+                                <span className="text-xs md:text-sm font-medium">Corrections:</span>
                               </div>
-                              <div className="space-y-3">
+                              <div className="space-y-2 md:space-y-3">
                                 {message.corrections.mistakes.map((correction, j) => (
-                                  <div key={j} className="text-sm space-y-1">
+                                  <div key={j} className="text-xs md:text-sm space-y-1">
                                     <div className="flex items-center gap-2">
                                       <span className={cn(
-                                        "text-xs px-2 py-0.5 rounded-full",
+                                        "text-xs px-1.5 py-0.5 rounded-full",
                                         correction.type === "grammar" && "bg-red-100 text-red-700 border border-red-200",
                                         correction.type === "vocabulary" && "bg-blue-100 text-blue-700 border border-blue-200",
                                         correction.type === "punctuation" && "bg-yellow-100 text-yellow-700 border border-yellow-200"
@@ -407,7 +479,7 @@ export default function Practice() {
                                         {correction.type.charAt(0).toUpperCase() + correction.type.slice(1)}
                                       </span>
                                     </div>
-                                    <div className="flex items-center gap-2 font-mono">
+                                    <div className="flex flex-wrap items-center gap-2 font-mono text-xs md:text-sm">
                                       <span className="bg-red-50 px-1.5 py-0.5 rounded">
                                         {correction.original}
                                       </span>
@@ -416,8 +488,22 @@ export default function Practice() {
                                         {correction.correction}
                                       </span>
                                     </div>
-                                    <p className="text-blue-600">{correction.explanation_es}</p>
-                                    <p className="text-gray-600">{correction.explanation}</p>
+                                    <Collapsible className="mt-1">
+                                      <CollapsibleTrigger asChild>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="sm" 
+                                          className="p-0 h-5 text-xs text-muted-foreground hover:text-foreground"
+                                        >
+                                          <ChevronRight className="h-3 w-3 mr-1" />
+                                          Show explanation
+                                        </Button>
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent className="pt-1">
+                                        <p className="text-blue-600 text-xs md:text-sm">{correction.explanation_es}</p>
+                                        <p className="text-gray-600 text-xs md:text-sm">{correction.explanation}</p>
+                                      </CollapsibleContent>
+                                    </Collapsible>
                                   </div>
                                 ))}
                               </div>
