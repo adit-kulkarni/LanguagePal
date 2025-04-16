@@ -509,10 +509,14 @@ export default function Practice() {
                     hideText={true}
                   />
                   {currentWord && (
-                    <div className="min-h-[50px] flex items-center">
-                      <Badge variant="secondary" className="text-xl px-6 py-2 bg-green-600 text-white shadow-md animate-pulse">
-                        ★ {currentWord} ★
-                      </Badge>
+                    <div className="min-h-[60px] flex items-center">
+                      <div className="rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 p-1 animate-pulse">
+                        <div className="bg-black/10 backdrop-blur-sm rounded-lg px-8 py-3">
+                          <span className="text-2xl font-bold text-white">
+                            ✧ {currentWord} ✧
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

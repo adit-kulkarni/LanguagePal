@@ -1,5 +1,23 @@
 // Service Worker for Spanish Language Learning App
-const CACHE_NAME = 'spanish-learning-cache-v1';
+console.log('Service Worker starting up...');
+
+// Detect if we're in a development environment
+const isDevelopment = self.location.hostname === 'localhost' || 
+                    self.location.hostname.includes('replit') ||
+                    self.location.hostname.includes('.repl.co');
+
+console.log('Service Worker running in', isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION', 'mode');
+
+// If in development mode, immediately unregister this service worker
+if (isDevelopment) {
+  console.log('Development mode detected - disabling service worker caching');
+  self.registration.unregister()
+    .then(() => {
+      console.log('Service worker has been unregistered in development mode');
+    });
+}
+
+const CACHE_NAME = 'spanish-learning-cache-v2';  // Changed version to force update
 
 // Assets to cache initially
 const INITIAL_CACHED_RESOURCES = [
