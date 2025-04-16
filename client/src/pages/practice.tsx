@@ -500,7 +500,7 @@ export default function Practice() {
                 <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]"></div>
                 
                 {/* Popup content */}
-                <div className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-xl p-6 flex flex-col items-center max-w-[300px] animate-in fade-in zoom-in-95 duration-300 relative">
+                <div className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-xl p-6 flex flex-col items-center max-w-[300px] animate-in fade-in zoom-in-95 duration-300 relative" style={{boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'}}>
                   <TeacherAvatar
                     className="w-24 h-24 mb-4"
                     speaking={isSpeaking}
