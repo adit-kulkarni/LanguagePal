@@ -269,25 +269,37 @@ export default function Practice() {
     <div className="h-screen overflow-hidden flex flex-col md:flex-row">
       {/* Mobile header with menu button */}
       {isMobile && (
-        <div className="h-14 border-b px-4 flex items-center justify-between">
+        <div className="h-14 border-b px-4 flex items-center justify-between sticky top-0 bg-background z-20">
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="h-9 w-9 p-0">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72 max-w-[80vw]">
+            <SheetContent 
+              side="left" 
+              className="p-0 w-[85vw] max-w-[280px] border-r shadow-lg"
+            >
               <div className="flex flex-col h-full">
-                <div className="p-4 border-b">
+                <div className="p-3 border-b flex items-center justify-between">
                   <Button
                     variant="outline"
-                    className="w-full"
+                    size="sm"
+                    className="flex-1 mr-2"
                     onClick={() => {
                       handleNewChat();
                       setIsMobileMenuOpen(false);
                     }}
                   >
                     New Chat
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 p-0"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <X className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
@@ -308,6 +320,7 @@ export default function Practice() {
             <Button 
               variant="ghost" 
               size="icon"
+              className="h-9 w-9 p-0"
               onClick={handleNewChat}
             >
               <X className="h-5 w-5" />
@@ -397,24 +410,25 @@ export default function Practice() {
               </CardContent>
             </Card>
 
-            <ScrollArea className="flex-1 px-4 md:px-8 py-2 md:py-4">
-              <div className="space-y-4 max-w-3xl mx-auto">
+            <ScrollArea className="flex-1 px-2 md:px-6 py-1 md:py-2">
+              <div className="space-y-2 max-w-3xl mx-auto">
                 {messages.map((message, i) => (
                   <Card 
                     key={message.id} 
                     className={cn(
+                      "shadow-sm",
                       message.type === "user" ? "bg-accent/10" : "bg-background",
                       isMobile && "border-l-4",
                       isMobile && message.type === "user" ? "border-l-primary/70" : "",
                       isMobile && message.type === "teacher" ? "border-l-secondary/70" : ""
                     )}
                   >
-                    <CardContent className={cn("space-y-2", isMobile ? "p-3" : "p-4")}>
-                      <div className="flex items-start gap-3">
+                    <CardContent className={cn("space-y-2", isMobile ? "p-2.5" : "p-3")}>
+                      <div className="flex items-start gap-2">
                         {message.type === "teacher" && (
-                          <div className="flex-shrink-0 pt-1">
+                          <div className="flex-shrink-0 pt-0.5">
                             <TeacherAvatar
-                              className={isMobile ? "w-6 h-6" : "w-8 h-8"}
+                              className={isMobile ? "w-6 h-6" : "w-7 h-7"}
                               speaking={isSpeaking && i === messages.length - 1}
                               intensity={speakingIntensity}
                               hideText={true}
@@ -422,8 +436,8 @@ export default function Practice() {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 whitespace-pre-wrap break-words text-sm md:text-base">
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="flex-1 whitespace-pre-wrap break-words text-sm">
                               {message.content}
                             </div>
                             {message.type === "teacher" && (
@@ -431,26 +445,26 @@ export default function Practice() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => speak(message.content)}
-                                className="flex-shrink-0 h-8 w-8 ml-1"
+                                className="flex-shrink-0 h-7 w-7 ml-1 p-0"
                               >
-                                <Volume2 className="h-4 w-4" />
+                                <Volume2 className="h-3.5 w-3.5" />
                               </Button>
                             )}
                           </div>
 
                           {message.type === "teacher" && message.translation && (
-                            <Collapsible className="mt-2">
+                            <Collapsible className="mt-1.5">
                               <CollapsibleTrigger asChild>
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
-                                  className="p-0 h-6 text-xs md:text-sm text-muted-foreground hover:text-foreground"
+                                  className="p-0 h-5 text-xs text-muted-foreground hover:text-foreground"
                                 >
                                   <ChevronRight className="h-3 w-3 mr-1" />
                                   Show translation
                                 </Button>
                               </CollapsibleTrigger>
-                              <CollapsibleContent className="pt-2 text-xs md:text-sm text-muted-foreground">
+                              <CollapsibleContent className="pt-1.5 text-xs text-muted-foreground">
                                 {message.translation}
                               </CollapsibleContent>
                             </Collapsible>
@@ -461,17 +475,17 @@ export default function Practice() {
                            message.corrections.mistakes.length > 0 &&
                            message.userMessageId !== undefined &&
                            messages.find(m => m.id === message.userMessageId)?.type === "user" && (
-                            <div className="mt-2 p-2 md:p-3 bg-yellow-50/50 rounded-md border border-yellow-200">
-                              <div className="flex items-center gap-2 text-yellow-600 mb-1 md:mb-2">
-                                <AlertCircle className="h-3 w-3 md:h-4 md:w-4" />
-                                <span className="text-xs md:text-sm font-medium">Corrections:</span>
+                            <div className="mt-1.5 p-2 bg-yellow-50/50 rounded-md border border-yellow-200">
+                              <div className="flex items-center gap-1 text-yellow-600 mb-1">
+                                <AlertCircle className="h-3 w-3" />
+                                <span className="text-xs font-medium">Corrections:</span>
                               </div>
-                              <div className="space-y-2 md:space-y-3">
+                              <div className="space-y-1.5">
                                 {message.corrections.mistakes.map((correction, j) => (
-                                  <div key={j} className="text-xs md:text-sm space-y-1">
-                                    <div className="flex items-center gap-2">
+                                  <div key={j} className="text-xs space-y-1">
+                                    <div className="flex items-center gap-1">
                                       <span className={cn(
-                                        "text-xs px-1.5 py-0.5 rounded-full",
+                                        "text-xs px-1.5 py-0.5 rounded-full text-[10px]",
                                         correction.type === "grammar" && "bg-red-100 text-red-700 border border-red-200",
                                         correction.type === "vocabulary" && "bg-blue-100 text-blue-700 border border-blue-200",
                                         correction.type === "punctuation" && "bg-yellow-100 text-yellow-700 border border-yellow-200"
@@ -479,29 +493,29 @@ export default function Practice() {
                                         {correction.type.charAt(0).toUpperCase() + correction.type.slice(1)}
                                       </span>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2 font-mono text-xs md:text-sm">
-                                      <span className="bg-red-50 px-1.5 py-0.5 rounded">
+                                    <div className="flex flex-wrap items-center gap-1 font-mono text-xs">
+                                      <span className="bg-red-50 px-1 py-0.5 rounded text-[11px]">
                                         {correction.original}
                                       </span>
                                       <span className="text-gray-500">→</span>
-                                      <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">
+                                      <span className="bg-green-50 text-green-700 px-1 py-0.5 rounded text-[11px]">
                                         {correction.correction}
                                       </span>
                                     </div>
-                                    <Collapsible className="mt-1">
+                                    <Collapsible className="mt-0.5">
                                       <CollapsibleTrigger asChild>
                                         <Button 
                                           variant="ghost" 
                                           size="sm" 
-                                          className="p-0 h-5 text-xs text-muted-foreground hover:text-foreground"
+                                          className="p-0 h-5 text-[10px] text-muted-foreground hover:text-foreground"
                                         >
-                                          <ChevronRight className="h-3 w-3 mr-1" />
+                                          <ChevronRight className="h-2.5 w-2.5 mr-0.5" />
                                           Show explanation
                                         </Button>
                                       </CollapsibleTrigger>
                                       <CollapsibleContent className="pt-1">
-                                        <p className="text-blue-600 text-xs md:text-sm">{correction.explanation_es}</p>
-                                        <p className="text-gray-600 text-xs md:text-sm">{correction.explanation}</p>
+                                        <p className="text-blue-600 text-[11px]">{correction.explanation_es}</p>
+                                        <p className="text-gray-600 text-[11px]">{correction.explanation}</p>
                                       </CollapsibleContent>
                                     </Collapsible>
                                   </div>
@@ -517,9 +531,14 @@ export default function Practice() {
               </div>
             </ScrollArea>
 
-            <div className="p-4 max-w-3xl mx-auto w-full">
+            <div className={cn(
+              "p-4 max-w-3xl mx-auto w-full border-t",
+              isMobile ? "fixed bottom-0 left-0 right-0 bg-background z-10 p-3" : ""
+            )}>
               <SpeechInput onSubmit={handleSubmit} />
             </div>
+            {/* Add bottom padding to avoid content being hidden behind fixed bottom bar on mobile */}
+            {isMobile && <div className="h-24" />}
           </div>
         )}
       </div>
