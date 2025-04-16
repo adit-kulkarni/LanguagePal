@@ -346,45 +346,43 @@ export default function Practice() {
         </div>
       )}
 
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar toggle button */}
       {!isMobile && (
-        <div 
-          className={cn(
-            "border-r h-full overflow-hidden flex flex-col transition-all duration-300",
-            isSidebarCollapsed ? "w-12" : "w-72"
-          )}
-        >
-          <div className={cn(
-            "flex items-center transition-all duration-300",
-            isSidebarCollapsed ? "justify-center p-2" : "p-4 border-b"
-          )}>
-            {!isSidebarCollapsed && (
-              <Button
-                variant="outline"
-                className="w-full mr-2"
-                onClick={handleNewChat}
-              >
-                New Chat
-              </Button>
+        <div className="fixed top-4 md:left-[5.5rem] left-[4.5rem] z-50">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className={cn(
+              "transition-all duration-300 bg-background shadow-md border",
+              !isSidebarCollapsed && "ml-[264px]" // 264px = 72-4-4 (width - padding)
             )}
+          >
+            {isSidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      )}
+      
+      {/* Desktop sidebar (overlaid when expanded) */}
+      {!isMobile && !isSidebarCollapsed && (
+        <div 
+          className="fixed inset-y-0 left-16 md:left-[5rem] w-72 bg-background z-40 border-r flex flex-col"
+        >
+          <div className="p-4 border-b flex items-center">
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="flex-shrink-0"
+              variant="outline"
+              className="w-full mr-2"
+              onClick={handleNewChat}
             >
-              {isSidebarCollapsed ? (
-                <ChevronRight className="h-4 w-4" />
-              ) : (
-                <ChevronLeft className="h-4 w-4" />
-              )}
+              New Chat
             </Button>
           </div>
 
-          <div className={cn(
-            "flex-1 overflow-y-auto",
-            isSidebarCollapsed && "hidden"
-          )}>
+          <div className="flex-1 overflow-y-auto">
             <ConversationSidebar
               userId={1}
               currentSessionId={currentSession?.id}
