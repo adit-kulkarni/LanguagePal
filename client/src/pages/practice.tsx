@@ -82,44 +82,78 @@ export default function Practice() {
       setActiveMessage(messages.length > 0 ? messages[messages.length - 1].id || null : null);
     }
 
+    // Cancel any previous speech
+    window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-CO';
     utterance.rate = 0.9;
 
-    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onstart = () => {
+      console.log("Speech started");
+      setIsSpeaking(true);
+    };
+    
     utterance.onend = () => {
+      console.log("Speech ended");
       setIsSpeaking(false);
       setSpeakingIntensity(0);
       setCurrentWord("");
       setActiveMessage(null);
     };
-    utterance.onerror = () => {
+    
+    utterance.onerror = (event) => {
+      console.error("Speech error:", event);
       setIsSpeaking(false);
       setSpeakingIntensity(0);
       setCurrentWord("");
       setActiveMessage(null);
     };
 
-    utterance.onboundary = (event) => {
-      if (event.name === 'word') {
-        // Extract the current word being spoken
-        const charIndex = event.charIndex;
-        const charLength = event.charLength || 0;
-        const word = text.substring(charIndex, charIndex + charLength).trim();
+    // Instead of using the onboundary event which may not work reliably in all browsers,
+    // manually split the text into words and display them with timing
+    const words = text.split(/\s+/);
+    let wordIndex = 0;
+    
+    // Set speaking to true immediately
+    setIsSpeaking(true);
+    
+    // Display words with timing
+    const wordInterval = setInterval(() => {
+      if (wordIndex < words.length) {
+        const word = words[wordIndex];
+        console.log(`Displaying word ${wordIndex}:`, word);
+        setCurrentWord(word);
         
-        if (word) {
-          setCurrentWord(word);
-        }
-        
-        // Update speaking intensity for avatar animation
+        // Update avatar animation
         setSpeakingIntensity(1);
         setTimeout(() => setSpeakingIntensity(0.5), 50);
         setTimeout(() => setSpeakingIntensity(0.2), 100);
         setTimeout(() => setSpeakingIntensity(0), 150);
+        
+        wordIndex++;
+      } else {
+        // Clear the interval when all words have been displayed
+        clearInterval(wordInterval);
       }
+    }, 400); // Adjust timing as needed (400ms per word)
+    
+    // Clean up the interval when speech ends
+    utterance.onend = () => {
+      console.log("Speech ended, clearing interval");
+      clearInterval(wordInterval);
+      setIsSpeaking(false);
+      setSpeakingIntensity(0);
+      setCurrentWord("");
+      setActiveMessage(null);
     };
 
     window.speechSynthesis.speak(utterance);
+    
+    // Return a cleanup function to clear the interval if component unmounts
+    return () => {
+      clearInterval(wordInterval);
+    };
   }, [messages]);
 
   React.useEffect(() => {
