@@ -118,6 +118,15 @@ export default function Practice() {
     // Set speaking to true immediately
     setIsSpeaking(true);
     
+    // Estimate speech duration based on word count and average speaking rate
+    const averageWordDuration = 300; // milliseconds per word (adjust as needed)
+    const estimatedDuration = words.length * averageWordDuration;
+    
+    // Calculate how long each word should be displayed
+    const wordDuration = estimatedDuration / words.length;
+    
+    console.log(`Estimated speech duration: ${estimatedDuration}ms, ${words.length} words, ${wordDuration}ms per word`);
+    
     // Display words with timing
     const wordInterval = setInterval(() => {
       if (wordIndex < words.length) {
@@ -133,19 +142,34 @@ export default function Practice() {
         
         wordIndex++;
       } else {
-        // Clear the interval when all words have been displayed
-        clearInterval(wordInterval);
+        // Keep displaying the last word for a moment before finishing
+        setTimeout(() => {
+          clearInterval(wordInterval);
+          // Only clear subtitle display after a short delay to ensure the last word is seen
+          setTimeout(() => {
+            setIsSpeaking(false);
+            setSpeakingIntensity(0);
+            setCurrentWord("");
+            setActiveMessage(null);
+          }, 500); // Wait 500ms after last word before hiding
+        }, 300);
       }
-    }, 400); // Adjust timing as needed (400ms per word)
+    }, wordDuration); // Dynamic timing based on text length
     
-    // Clean up the interval when speech ends
+    // Clean up the interval if speech ends prematurely (e.g., if canceled)
     utterance.onend = () => {
       console.log("Speech ended, clearing interval");
       clearInterval(wordInterval);
-      setIsSpeaking(false);
-      setSpeakingIntensity(0);
-      setCurrentWord("");
-      setActiveMessage(null);
+      
+      // If we haven't shown all words yet, keep the popup visible for a moment
+      if (wordIndex < words.length) {
+        setTimeout(() => {
+          setIsSpeaking(false);
+          setSpeakingIntensity(0);
+          setCurrentWord("");
+          setActiveMessage(null);
+        }, 800); // Wait a bit longer if speech ended early
+      }
     };
 
     window.speechSynthesis.speak(utterance);
@@ -510,13 +534,9 @@ export default function Practice() {
                   />
                   {currentWord && (
                     <div className="min-h-[60px] flex items-center">
-                      <div className="rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 p-1 animate-pulse">
-                        <div className="bg-black/10 backdrop-blur-sm rounded-lg px-8 py-3">
-                          <span className="text-2xl font-bold text-white">
-                            ✧ {currentWord} ✧
-                          </span>
-                        </div>
-                      </div>
+                      <Badge variant="secondary" className="text-xl px-6 py-3 bg-primary/90 text-white shadow-md">
+                        {currentWord}
+                      </Badge>
                     </div>
                   )}
                 </div>
