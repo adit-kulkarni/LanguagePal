@@ -266,8 +266,8 @@ export default function Practice() {
   };
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col md:flex-row">
-      {/* Mobile header with menu button */}
+    <div className="h-screen overflow-hidden flex flex-col md:flex-row relative">
+      {/* Mobile header with menu button and sheet overlay */}
       {isMobile && (
         <div className="h-14 border-b px-4 flex items-center justify-between sticky top-0 bg-background z-20">
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
