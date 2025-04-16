@@ -23,6 +23,7 @@ import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Badge } from "@/components/ui/badge";
 
 interface Message {
   id?: number;  
@@ -62,13 +63,25 @@ export default function Practice() {
   const { toast } = useToast();
   const [isSpeaking, setIsSpeaking] = React.useState(false);
   const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
+  const [currentWord, setCurrentWord] = React.useState<string>("");
+  const [activeMessage, setActiveMessage] = React.useState<number | null>(null);
   const queryClient = useQueryClient();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [messageIdCounter, setMessageIdCounter] = React.useState(1);
   const isMobile = useIsMobile();
 
-  const speak = React.useCallback((text: string) => {
+  const speak = React.useCallback((text: string, messageId?: number) => {
+    // Reset current word and state
+    setCurrentWord("");
+    
+    // Set the active message ID if provided
+    if (messageId) {
+      setActiveMessage(messageId);
+    } else {
+      setActiveMessage(messages.length > 0 ? messages[messages.length - 1].id || null : null);
+    }
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-CO';
     utterance.rate = 0.9;
@@ -77,14 +90,28 @@ export default function Practice() {
     utterance.onend = () => {
       setIsSpeaking(false);
       setSpeakingIntensity(0);
+      setCurrentWord("");
+      setActiveMessage(null);
     };
     utterance.onerror = () => {
       setIsSpeaking(false);
       setSpeakingIntensity(0);
+      setCurrentWord("");
+      setActiveMessage(null);
     };
 
     utterance.onboundary = (event) => {
-      if (event.name === 'word' || event.name === 'sentence') {
+      if (event.name === 'word') {
+        // Extract the current word being spoken
+        const charIndex = event.charIndex;
+        const charLength = event.charLength || 0;
+        const word = text.substring(charIndex, charIndex + charLength).trim();
+        
+        if (word) {
+          setCurrentWord(word);
+        }
+        
+        // Update speaking intensity for avatar animation
         setSpeakingIntensity(1);
         setTimeout(() => setSpeakingIntensity(0.5), 50);
         setTimeout(() => setSpeakingIntensity(0.2), 100);
@@ -93,7 +120,7 @@ export default function Practice() {
     };
 
     window.speechSynthesis.speak(utterance);
-  }, []);
+  }, [messages]);
 
   React.useEffect(() => {
     async function initializeUser() {
@@ -149,7 +176,7 @@ export default function Practice() {
 
         setMessages(prev => [...prev, userMessage, teacherMessage]);
         queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
-        speak(data.teacherResponse.message); // Added speak call here
+        speak(data.teacherResponse.message, teacherMessage.id); // Pass in teacher message ID
         return;
       } catch (error) {
         toast({
@@ -425,6 +452,15 @@ export default function Practice() {
               </CardContent>
             </Card>
 
+            {/* Word-by-word subtitle display */}
+            {isSpeaking && currentWord && (
+              <div className="fixed bottom-[120px] left-0 right-0 flex justify-center z-50 pointer-events-none">
+                <Badge variant="secondary" className="text-lg px-4 py-2 bg-primary/90 text-white shadow-lg animate-pulse">
+                  {currentWord}
+                </Badge>
+              </div>
+            )}
+            
             <ScrollArea className="flex-1 px-2 md:px-6 py-1 md:py-2">
               <div className="space-y-2 max-w-3xl mx-auto">
                 {messages.map((message, i) => (
@@ -435,7 +471,8 @@ export default function Practice() {
                       message.type === "user" ? "bg-accent/10" : "bg-background",
                       isMobile && "border-l-4",
                       isMobile && message.type === "user" ? "border-l-primary/70" : "",
-                      isMobile && message.type === "teacher" ? "border-l-secondary/70" : ""
+                      isMobile && message.type === "teacher" ? "border-l-secondary/70" : "",
+                      isSpeaking && activeMessage === message.id && "ring-1 ring-primary"
                     )}
                   >
                     <CardContent className={cn("space-y-2", isMobile ? "p-2.5" : "p-3")}>
@@ -444,7 +481,7 @@ export default function Practice() {
                           <div className="flex-shrink-0 pt-0.5">
                             <TeacherAvatar
                               className={isMobile ? "w-6 h-6" : "w-7 h-7"}
-                              speaking={isSpeaking && i === messages.length - 1}
+                              speaking={isSpeaking && message.id === activeMessage}
                               intensity={speakingIntensity}
                               hideText={true}
                             />
@@ -459,7 +496,7 @@ export default function Practice() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => speak(message.content)}
+                                onClick={() => speak(message.content, message.id)}
                                 className="flex-shrink-0 h-7 w-7 ml-1 p-0"
                               >
                                 <Volume2 className="h-3.5 w-3.5" />
