@@ -7,6 +7,16 @@ import { translateWord } from "./dictionary";
 import { z } from "zod";
 import { WebSocketServer } from 'ws';
 import { wsConnections } from './index';
+import { generateSpeech, transcribeSpeech } from "./openai-audio";
+import multer from "multer";
+
+// Configure multer for handling file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
 
 // Add these helper functions at the top of the file
 function extractContextFromMessage(message: string): string {
