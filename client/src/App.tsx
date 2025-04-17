@@ -54,6 +54,10 @@ function Router() {
       <Route path="/speech">
         <SpeechTest />
       </Route>
+      
+      <Route path="/stable-practice">
+        <StablePractice />
+      </Route>
 
       {/* Development direct access routes */}
       {SKIP_AUTH && (
@@ -67,10 +71,10 @@ function Router() {
         </Route>
       )}
 
-      {/* Root redirects to test page for now */}
+      {/* Root redirects to stable practice page for testing */}
       <Route path="/">
         {/* {SKIP_AUTH ? <Redirect to="/dev-practice" /> : <Redirect to="/auth" />} */}
-        <Redirect to="/test" />
+        <Redirect to="/stable-practice" />
       </Route>
 
       {/* Authentication routes */}

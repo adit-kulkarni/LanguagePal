@@ -499,7 +499,7 @@ export function registerRoutes(app: Express): Server {
                 `${text.substring(0, 30)}...` : 
                 text;
                 
-            log(`[API] Generating speech (${text.length} chars): "${truncatedText}" with voice ${voice}`);
+            console.log(`[API] Generating speech (${text.length} chars): "${truncatedText}" with voice ${voice}`);
             
             try {
                 const audioBuffer = await generateSpeech(text, voice);
@@ -513,7 +513,7 @@ export function registerRoutes(app: Express): Server {
                 
                 // Audio data is not sensitive, so just send it
                 // (our privacy policy should mention TTS usage)
-                log(`[API] Sending audio (${audioBuffer.length} bytes) to client`);
+                console.log(`[API] Sending audio (${audioBuffer.length} bytes) to client`);
                 res.send(audioBuffer);
             } catch (error) {
                 console.error('[API] OpenAI TTS error:', error);
