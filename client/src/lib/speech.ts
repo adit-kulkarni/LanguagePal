@@ -76,6 +76,7 @@ export class SpeechRecognitionService {
   private currentTranscript = '';
   private retryCount = 0;
   private maxRetries = 2;
+  private processAudioFunction: (() => Promise<void>) | null = null;
 
   constructor() {
     this.initBrowserRecognition();
@@ -286,92 +287,112 @@ export class SpeechRecognitionService {
     
     logDebug('Starting OpenAI Whisper recognition');
     
-    this.recorder = openAIAudioService.createRecorder(
-      // onStart callback
-      () => {
-        logDebug('OpenAI recording started');
-        // Send an empty result to indicate we're listening
-        if (this.currentCallback) {
-          this.currentCallback('', false);
-        }
-      },
+    // Create recorder with new API
+    this.recorder = openAIAudioService.createRecorder();
+    
+    // Set up event handlers manually
+    const startRecording = async () => {
+      logDebug('OpenAI recording started');
+      // Send an empty result to indicate we're listening
+      if (this.currentCallback) {
+        this.currentCallback('', false);
+      }
       
-      // onStop callback
-      async (blob) => {
-        if (!this.currentCallback) {
-          this.isListening = false;
-          return;
+      // Start recording timeout for safety
+      setTimeout(() => {
+        if (this.isListening && this.recorder) {
+          logDebug('Recording timeout reached, stopping automatically');
+          this.stop();
         }
-        
-        logDebug(`OpenAI recording stopped, blob size: ${blob.size}`);
-        
-        // Skip very small audio blobs (likely just background noise)
-        if (blob.size < 1000) {
-          logDebug('Audio blob too small, ignoring');
+      }, 15000); // 15 seconds max recording time
+    };
+    
+    const startSuccess = this.recorder.startRecording()
+      .then(success => {
+        if (success) {
+          startRecording();
+          return true;
+        } else {
+          logDebug('Failed to start OpenAI recorder');
           this.isListening = false;
-          return;
-        }
-        
-        // Show "processing" message to user
-        this.currentCallback('Procesando...', false);
-        
-        try {
-          // Transcribe audio using OpenAI
-          logDebug('Sending audio to OpenAI for transcription');
-          const transcript = await openAIAudioService.speechToText(blob, 'es');
           
-          if (transcript && transcript.trim()) {
-            logDebug(`OpenAI transcription result: "${transcript}"`);
-            this.currentTranscript = transcript;
-            this.currentCallback(transcript, true);
-          } else {
-            logDebug('OpenAI returned empty transcript');
-            
-            // Try browser fallback if OpenAI returned empty result
-            if (this.fallbackMode && this.recognition && this.retryCount < this.maxRetries) {
-              logDebug('Empty OpenAI result, trying browser fallback');
-              this.retryCount++;
-              this.mode = 'browser';
-              this.start(this.currentCallback);
-              return;
-            }
-          }
-        } catch (error) {
-          console.error('Error transcribing with OpenAI:', error);
-          
-          // Try browser fallback if OpenAI failed
+          // Try browser fallback if OpenAI recorder fails to start
           if (this.fallbackMode && this.recognition && this.retryCount < this.maxRetries) {
-            logDebug('OpenAI error, trying browser fallback');
+            logDebug('OpenAI recorder failed to start, trying browser fallback');
+            this.retryCount++;
+            this.mode = 'browser';
+            this.start(this.currentCallback);
+          }
+          return false;
+        }
+      });
+    
+    // When recording is manually stopped
+    const processAudio = async () => {
+      if (!this.recorder || !this.currentCallback || !this.isListening) return;
+      
+      this.currentCallback('Procesando...', false);
+      
+      // Get the recorded audio blob
+      const audioBlob = await this.recorder.stopRecording();
+      
+      if (!audioBlob) {
+        logDebug('No audio blob received');
+        this.isListening = false;
+        return;
+      }
+      
+      logDebug(`OpenAI recording stopped, blob size: ${audioBlob.size}`);
+      
+      // Skip very small audio blobs (likely just background noise)
+      if (audioBlob.size < 1000) {
+        logDebug('Audio blob too small, ignoring');
+        this.isListening = false;
+        return;
+      }
+      
+      try {
+        // Transcribe audio using OpenAI
+        logDebug('Sending audio to OpenAI for transcription');
+        const transcript = await openAIAudioService.transcribeAudio(audioBlob, 'es');
+        
+        if (transcript && transcript.trim()) {
+          logDebug(`OpenAI transcription result: "${transcript}"`);
+          this.currentTranscript = transcript;
+          this.currentCallback(transcript, true);
+        } else {
+          logDebug('OpenAI returned empty transcript');
+          
+          // Try browser fallback if OpenAI returned empty result
+          if (this.fallbackMode && this.recognition && this.retryCount < this.maxRetries) {
+            logDebug('Empty OpenAI result, trying browser fallback');
             this.retryCount++;
             this.mode = 'browser';
             this.start(this.currentCallback);
             return;
-          } else {
-            // Let the user know there was an error
-            this.currentCallback('Error de transcripción', true);
           }
-        } finally {
-          this.isListening = false;
         }
-      },
-      
-      // Max recording duration - reduced for faster feedback
-      15000
-    );
-    
-    const started = this.recorder.start();
-    if (!started) {
-      logDebug('Failed to start OpenAI recorder');
-      this.isListening = false;
-      
-      // Try browser fallback if OpenAI recorder fails to start
-      if (this.fallbackMode && this.recognition && this.retryCount < this.maxRetries) {
-        logDebug('OpenAI recorder failed to start, trying browser fallback');
-        this.retryCount++;
-        this.mode = 'browser';
-        this.start(this.currentCallback);
+      } catch (error) {
+        console.error('Error transcribing with OpenAI:', error);
+        
+        // Try browser fallback if OpenAI failed
+        if (this.fallbackMode && this.recognition && this.retryCount < this.maxRetries) {
+          logDebug('OpenAI error, trying browser fallback');
+          this.retryCount++;
+          this.mode = 'browser';
+          this.start(this.currentCallback);
+          return;
+        } else {
+          // Let the user know there was an error
+          this.currentCallback('Error de transcripción', true);
+        }
+      } finally {
+        this.isListening = false;
       }
-    }
+    };
+    
+    // Store the processAudio function for later use when stopping
+    this.processAudioFunction = processAudio;
   }
 
   /**
@@ -396,7 +417,13 @@ export class SpeechRecognitionService {
         console.error('Error stopping browser recognition:', error);
       }
     } else if (this.recorder) {
-      this.recorder.stop();
+      if (this.processAudioFunction) {
+        // Call the stored process audio function to finish up
+        this.processAudioFunction();
+      } else {
+        // Fallback to just stop recording
+        this.recorder.stopRecording();
+      }
     }
     
     this.isListening = false;

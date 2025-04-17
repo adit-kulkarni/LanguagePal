@@ -484,8 +484,8 @@ export function registerRoutes(app: Express): Server {
         }
     });
 
-    // OpenAI Text-to-Speech endpoint
-    app.post("/api/text-to-speech", async (req, res) => {
+    // OpenAI speech API endpoints
+    app.post("/api/speech/tts", async (req, res) => {
         try {
             const schema = z.object({
                 text: z.string().min(1).max(4000),
@@ -493,45 +493,126 @@ export function registerRoutes(app: Express): Server {
             });
             
             const { text, voice } = schema.parse(req.body);
-            console.log(`Generating speech for text: "${text.substring(0, 30)}..." with voice ${voice}`);
             
-            const audioBuffer = await generateSpeech(text, voice);
+            // Get only the first part of text for logging (respect privacy)
+            const truncatedText = text.length > 30 ? 
+                `${text.substring(0, 30)}...` : 
+                text;
+                
+            log(`[API] Generating speech (${text.length} chars): "${truncatedText}" with voice ${voice}`);
             
-            // Set appropriate headers for audio streaming
-            res.setHeader('Content-Type', 'audio/mpeg');
-            res.setHeader('Content-Length', audioBuffer.length);
-            
-            // Send the audio data
-            res.send(audioBuffer);
-        } catch (error) {
-            console.error('Text-to-speech error:', error);
-            res.status(500).json({ 
-                message: "Failed to generate speech", 
-                error: error instanceof Error ? error.message : String(error) 
+            try {
+                const audioBuffer = await generateSpeech(text, voice);
+                
+                // Set appropriate headers for audio streaming
+                res.setHeader('Content-Type', 'audio/mpeg');
+                res.setHeader('Content-Length', audioBuffer.length);
+                
+                // Cache control to improve client-side caching
+                res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour
+                
+                // Audio data is not sensitive, so just send it
+                // (our privacy policy should mention TTS usage)
+                log(`[API] Sending audio (${audioBuffer.length} bytes) to client`);
+                res.send(audioBuffer);
+            } catch (error) {
+                console.error('[API] OpenAI TTS error:', error);
+                
+                // Provide meaningful error to client
+                if (error instanceof Error && error.message.includes('maximum context length')) {
+                    return res.status(413).json({
+                        message: "Text too long for speech synthesis",
+                        error: "Please use shorter text segments"
+                    });
+                }
+                
+                if (error instanceof Error && error.message.includes('rate limit')) {
+                    return res.status(429).json({
+                        message: "Rate limit exceeded",
+                        error: "Please try again in a few moments"
+                    });
+                }
+                
+                res.status(500).json({ 
+                    message: "Failed to generate speech", 
+                    error: error instanceof Error ? error.message : String(error) 
+                });
+            }
+        } catch (validationError) {
+            console.error('[API] TTS validation error:', validationError);
+            res.status(400).json({ 
+                message: "Invalid input for speech generation", 
+                error: validationError instanceof Error ? validationError.message : String(validationError) 
             });
         }
     });
 
-    // OpenAI Speech-to-Text endpoint
-    app.post("/api/speech-to-text", upload.single('audio'), async (req, res) => {
+    // OpenAI Speech-to-Text endpoint with improved error handling
+    app.post("/api/speech/transcribe", upload.single('audio'), async (req, res) => {
         try {
             if (!req.file) {
                 return res.status(400).json({ message: "No audio file provided" });
             }
             
             const language = req.body.language || 'es';
-            console.log(`Transcribing speech (${req.file.size} bytes) in language: ${language}`);
+            log(`[API] Transcribing speech (${req.file.size} bytes) in language: ${language}`);
             
-            const transcription = await transcribeSpeech(req.file.buffer, language);
+            // Check file size to avoid hitting API limits
+            const MAX_SIZE = 25 * 1024 * 1024; // 25MB limit for OpenAI
+            if (req.file.size > MAX_SIZE) {
+                return res.status(413).json({ 
+                    message: "Audio file too large", 
+                    error: "Maximum file size is 25MB" 
+                });
+            }
             
-            res.json({ transcription });
+            try {
+                const transcription = await transcribeSpeech(req.file.buffer, language);
+                log(`[API] Transcription complete: "${transcription.substring(0, 50)}..."`);
+                
+                res.json({ 
+                    text: transcription,
+                    success: true
+                });
+            } catch (error) {
+                console.error('[API] OpenAI STT error:', error);
+                
+                if (error instanceof Error && error.message.includes('rate limit')) {
+                    return res.status(429).json({
+                        message: "Rate limit exceeded",
+                        error: "Please try again in a few moments"
+                    });
+                }
+                
+                res.status(500).json({ 
+                    message: "Failed to transcribe speech", 
+                    error: error instanceof Error ? error.message : String(error),
+                    success: false
+                });
+            }
         } catch (error) {
-            console.error('Speech-to-text error:', error);
+            console.error('[API] STT request error:', error);
             res.status(500).json({ 
-                message: "Failed to transcribe speech", 
-                error: error instanceof Error ? error.message : String(error) 
+                message: "Failed to process speech-to-text request", 
+                error: error instanceof Error ? error.message : String(error),
+                success: false
             });
         }
+    });
+    
+    // Legacy endpoints for backward compatibility
+    app.post("/api/text-to-speech", (req, res) => {
+        log("[API] Redirecting legacy TTS request to /api/speech/tts");
+        // Forward to new endpoint
+        req.url = '/api/speech/tts';
+        app._router.handle(req, res);
+    });
+    
+    app.post("/api/speech-to-text", upload.single('audio'), (req, res) => {
+        log("[API] Redirecting legacy STT request to /api/speech/transcribe");
+        // Forward to new endpoint
+        req.url = '/api/speech/transcribe';
+        app._router.handle(req, res);
     });
 
     const httpServer = createServer(app);
