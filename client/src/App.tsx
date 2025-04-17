@@ -11,6 +11,7 @@ import AuthCallback from "@/pages/auth-callback";
 import Home from "@/pages/home";
 import Practice from "@/pages/practice";
 import SimplePractice from "@/pages/simple-practice";
+import SimpleVideoCall from "@/pages/simple-video";
 import Settings from "@/pages/settings";
 import Progress from "@/pages/progress";
 import NotFound from "@/pages/not-found";
@@ -38,6 +39,10 @@ function Router() {
       
       <Route path="/simple">
         <SimplePractice />
+      </Route>
+      
+      <Route path="/video">
+        <SimpleVideoCall />
       </Route>
 
       {/* Development direct access routes */}
