@@ -316,7 +316,7 @@ export default function StablePractice() {
                         {/* Show translation for teacher messages */}
                         {message.type === "teacher" && message.translation && (
                           <div className="pt-1 text-xs text-muted-foreground border-t mt-1">
-                            {message.translation}
+                            <span className="italic">Translation:</span> {message.translation}
                           </div>
                         )}
                       </div>

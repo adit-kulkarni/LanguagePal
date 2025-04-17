@@ -5,7 +5,7 @@
 export const FEATURE_FLAGS = {
   // Core functionality
   ENABLE_WEBSOCKETS: false,         // Enable WebSocket connection for real-time updates
-  ENABLE_OPENAI_AUDIO: false,       // Enable OpenAI audio for speech and transcription
+  ENABLE_OPENAI_AUDIO: true,        // Enable OpenAI audio for speech and transcription
   ENABLE_USER_SESSIONS: false,      // Enable user session management and history
   
   // User experience features
