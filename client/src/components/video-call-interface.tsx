@@ -42,8 +42,11 @@ export function VideoCallInterface({
 
   // Start recording when teacher stops speaking (after delay if set)
   React.useEffect(() => {
-    if (!isSpeaking && open && !isRecording && !isDelayActive) {
-      // If delay is active, wait before starting recording
+    // When the teacher stops speaking and the interface is open
+    if (!isSpeaking && open && !isDelayActive) {
+      console.log("Teacher stopped speaking, preparing to activate microphone");
+      
+      // If delay/thinking time is active, wait before starting recording
       if (responseDelay > 0) {
         setIsDelayActive(true);
         delayTimerRef.current = setTimeout(() => {
@@ -51,6 +54,7 @@ export function VideoCallInterface({
           setIsDelayActive(false);
         }, responseDelay * 1000);
       } else {
+        // Start recording immediately if no delay
         startRecording();
       }
     }
@@ -61,7 +65,7 @@ export function VideoCallInterface({
         clearTimeout(delayTimerRef.current);
       }
     };
-  }, [isSpeaking, open, isRecording, responseDelay, isDelayActive]);
+  }, [isSpeaking, open]);
 
   // Clean up when dialog closes
   React.useEffect(() => {
@@ -76,15 +80,22 @@ export function VideoCallInterface({
   }, [open]);
 
   const startRecording = () => {
-    speechService.start((transcript, isFinal) => {
-      setRecordedText(transcript);
-      
-      if (isFinal && transcript.trim()) {
-        onUserResponse(transcript.trim());
-        stopRecording();
-      }
-    });
-    setIsRecording(true);
+    console.log("Starting microphone recording");
+    setIsRecording(true); // Set state before starting to avoid race conditions
+    
+    try {
+      speechService.start((transcript, isFinal) => {
+        setRecordedText(transcript);
+        
+        if (isFinal && transcript.trim()) {
+          onUserResponse(transcript.trim());
+          stopRecording();
+        }
+      });
+    } catch (error) {
+      console.error("Error starting speech recognition:", error);
+      setIsRecording(false);
+    }
   };
 
   const stopRecording = () => {
@@ -195,10 +206,10 @@ export function VideoCallInterface({
               </div>
             </div>
             
-            {/* Response delay control */}
+            {/* Thinking time control */}
             <div className="mt-4 max-w-xs mx-auto">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-muted-foreground">Response delay</span>
+                <span className="text-xs text-muted-foreground">Thinking time</span>
                 <span className="text-xs font-medium">{responseDelay}s</span>
               </div>
               <Slider
