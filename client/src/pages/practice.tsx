@@ -2,11 +2,12 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { TeacherAvatar } from "@/components/teacher-avatar";
 import { SpeechInput } from "@/components/speech-input";
+import { VideoCallInterface } from "@/components/video-call-interface";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { AlertCircle, Volume2, ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
+import { AlertCircle, Volume2, ChevronLeft, ChevronRight, Menu, X, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
