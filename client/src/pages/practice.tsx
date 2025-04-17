@@ -185,7 +185,7 @@ export default function Practice() {
           setActiveMessage(null);
         });
       })
-      .catch(error => {
+      .catch((error: Error) => {
         console.error("Error generating TTS:", error);
         setIsSpeaking(false);
         setSpeakingIntensity(0);

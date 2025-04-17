@@ -13,13 +13,44 @@ import Practice from "@/pages/practice";
 import Settings from "@/pages/settings";
 import Progress from "@/pages/progress";
 import NotFound from "@/pages/not-found";
+import TestPage from "@/pages/test-page";
+import { useEffect } from "react";
+
+console.log("🔵 App.tsx loaded successfully");
+console.log("🔵 Root element:", document.getElementById("root"));
+
+// Development mode testing - modify as needed
+const IS_DEV_MODE = true; // Set to true to bypass authentication in development
+const SKIP_AUTH = IS_DEV_MODE;
 
 function Router() {
+  useEffect(() => {
+    console.log("🔵 Router component mounted");
+  }, []);
+
   return (
     <Switch>
-      {/* Root redirects to auth */}
+      {/* Simplified test page with no dependencies */}
+      <Route path="/test">
+        <TestPage />
+      </Route>
+
+      {/* Development direct access routes */}
+      {SKIP_AUTH && (
+        <Route path="/dev-practice">
+          <div className="md:grid md:grid-cols-[auto,1fr]">
+            <Navigation />
+            <main>
+              <Practice />
+            </main>
+          </div>
+        </Route>
+      )}
+
+      {/* Root redirects to test page for now */}
       <Route path="/">
-        <Redirect to="/auth" />
+        {/* {SKIP_AUTH ? <Redirect to="/dev-practice" /> : <Redirect to="/auth" />} */}
+        <Redirect to="/test" />
       </Route>
 
       {/* Authentication routes */}
@@ -70,6 +101,11 @@ function Router() {
 }
 
 function App() {
+  useEffect(() => {
+    console.log("🔵 App component mounted");
+    console.log("🔵 Window location:", window.location.href);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
