@@ -267,7 +267,9 @@ export class SpeechRecognitionService {
         logDebug('Falling back to OpenAI after browser start error');
         this.retryCount++;
         this.mode = 'openai';
-        this.start(this.currentCallback!);
+        if (this.currentCallback) {
+          this.start(this.currentCallback);
+        }
       }
     }
   }
@@ -289,7 +291,9 @@ export class SpeechRecognitionService {
       () => {
         logDebug('OpenAI recording started');
         // Send an empty result to indicate we're listening
-        this.currentCallback!('', false);
+        if (this.currentCallback) {
+          this.currentCallback('', false);
+        }
       },
       
       // onStop callback

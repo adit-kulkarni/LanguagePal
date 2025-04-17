@@ -2,13 +2,14 @@ import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
-import { Mic, MicOff, Video, VideoOff, X, Clock, Settings } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, X, Clock, Settings, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { speechService } from "@/lib/speech";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
+import { SpeechInput } from "@/components/speech-input";
 import {
   Popover,
   PopoverContent,
@@ -52,6 +53,8 @@ export function VideoCallInterface({
   const [isDelayActive, setIsDelayActive] = React.useState(false);
   const [recognitionMode, setRecognitionMode] = React.useState<'browser' | 'openai'>('openai');
   const [showSettings, setShowSettings] = React.useState(false);
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const [autoListenAfterTeacher, setAutoListenAfterTeacher] = React.useState(true);
   
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -60,12 +63,16 @@ export function VideoCallInterface({
   // Set speech recognition mode
   React.useEffect(() => {
     speechService.setMode(recognitionMode);
+    speechService.configureSilenceDetection(true, 1500); // 1.5 seconds of silence to auto-stop
+    speechService.setFallbackMode(true); // Enable fallback between modes if one fails
   }, [recognitionMode]);
 
   // Start recording when teacher stops speaking (after delay if set)
   React.useEffect(() => {
+    if (!autoListenAfterTeacher) return;
+    
     // When the teacher stops speaking and the interface is open
-    if (!isSpeaking && open && !isDelayActive) {
+    if (!isSpeaking && open && !isDelayActive && !isRecording) {
       console.log("Teacher stopped speaking, preparing to activate microphone");
       
       // If delay/thinking time is active, wait before starting recording
@@ -85,9 +92,10 @@ export function VideoCallInterface({
     return () => {
       if (delayTimerRef.current) {
         clearTimeout(delayTimerRef.current);
+        delayTimerRef.current = null;
       }
     };
-  }, [isSpeaking, open]);
+  }, [isSpeaking, open, isRecording, autoListenAfterTeacher]);
 
   // Clean up when dialog closes
   React.useEffect(() => {
@@ -95,49 +103,76 @@ export function VideoCallInterface({
       stopRecording();
       setRecordedText("");
       setIsDelayActive(false);
+      setIsProcessing(false);
       if (delayTimerRef.current) {
         clearTimeout(delayTimerRef.current);
+        delayTimerRef.current = null;
       }
     }
   }, [open]);
 
   const startRecording = () => {
+    // Don't start if already recording or processing a previous recording
+    if (isRecording || isProcessing || !open) return;
+    
     console.log("Starting microphone recording");
-    setIsRecording(true); // Set state before starting to avoid race conditions
+    setIsRecording(true);
+    setIsProcessing(false);
+    setRecordedText("");
     
     try {
       speechService.start((transcript, isFinal) => {
-        setRecordedText(transcript);
+        console.log(`Speech recognition: "${transcript}", final: ${isFinal}`);
         
-        if (isFinal && transcript.trim()) {
-          onUserResponse(transcript.trim());
-          stopRecording();
+        // Handle processing state
+        if (transcript === 'Procesando...') {
+          setIsProcessing(true);
+          return;
         }
         
-        // If there's a pause in speaking (silence detection)
-        // This helps prevent the loop where the microphone picks up teacher's audio
-        if (transcript.trim() && transcript.trim().length > 3 && !transcript.endsWith('...')) {
-          // Create a timeout to stop recording if the user pauses for more than 2 seconds
-          const silenceTimeout = setTimeout(() => {
-            // Only stop if we're still recording and the transcript hasn't changed
-            if (isRecording) {
-              console.log("Silence detected, stopping microphone");
-              stopRecording();
-            }
-          }, 2000);
+        // Handle error state
+        if (transcript === 'Error de transcripción') {
+          setIsProcessing(false);
+          setIsRecording(false);
+          toast({
+            title: "Error con la transcripción",
+            description: "No se pudo procesar el audio. Intenta nuevamente.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        // Update display
+        setRecordedText(transcript);
+        
+        // If we have a final result with content, submit it
+        if (isFinal && transcript.trim()) {
+          console.log("Final transcript received, submitting response");
+          setIsRecording(false);
+          setIsProcessing(false);
           
-          // Clear previous timeout
-          return () => clearTimeout(silenceTimeout);
+          // Short delay to allow user to see what was transcribed
+          setTimeout(() => {
+            onUserResponse(transcript.trim());
+          }, 300);
         }
       });
     } catch (error) {
       console.error("Error starting speech recognition:", error);
       setIsRecording(false);
+      setIsProcessing(false);
+      
+      toast({
+        title: "Error activando micrófono",
+        description: "No se pudo iniciar el reconocimiento de voz.",
+        variant: "destructive"
+      });
     }
   };
 
   const stopRecording = () => {
     if (isRecording) {
+      console.log("Stopping microphone recording");
       speechService.stop();
       setIsRecording(false);
     }
@@ -207,11 +242,19 @@ export function VideoCallInterface({
                   <AvatarFallback>👤</AvatarFallback>
                 </Avatar>
                 
-                {recordedText && (
+                {isProcessing ? (
+                  <Badge variant="outline" className="text-base px-4 py-2 max-w-[200px] md:max-w-[300px] animate-pulse">
+                    Procesando audio...
+                  </Badge>
+                ) : isRecording ? (
+                  <Badge variant="outline" className="text-base px-4 py-2 max-w-[200px] md:max-w-[300px] text-primary animate-pulse">
+                    Escuchando...
+                  </Badge>
+                ) : recordedText ? (
                   <Badge variant="outline" className="text-base px-4 py-2 max-w-[200px] md:max-w-[300px] truncate">
                     {recordedText}
                   </Badge>
-                )}
+                ) : null}
               </div>
               
               <div className="flex items-center gap-2">
@@ -228,9 +271,16 @@ export function VideoCallInterface({
                   variant={isRecording ? "destructive" : "default"}
                   size="icon"
                   onClick={toggleMicrophone}
+                  disabled={isProcessing}
                   className="h-10 w-10 rounded-full"
                 >
-                  {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                  {isProcessing ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : isRecording ? (
+                    <MicOff className="h-5 w-5" />
+                  ) : (
+                    <Mic className="h-5 w-5" />
+                  )}
                 </Button>
                 
                 <Button 
@@ -276,7 +326,6 @@ export function VideoCallInterface({
                                   : "Real-time feedback but less accurate",
                               });
                             }}
-                            
                           >
                             <SelectTrigger className="col-span-2 h-8">
                               <SelectValue placeholder="Select mode" />
@@ -286,6 +335,37 @@ export function VideoCallInterface({
                               <SelectItem value="browser">Browser API (Real-time)</SelectItem>
                             </SelectContent>
                           </Select>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 items-center gap-4 pt-2">
+                          <label htmlFor="auto-listen" className="text-sm">
+                            Auto-Listen
+                          </label>
+                          <div className="col-span-2 flex items-center">
+                            <div className="mr-2">
+                              <Button
+                                variant={autoListenAfterTeacher ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setAutoListenAfterTeacher(true)}
+                              >
+                                On
+                              </Button>
+                            </div>
+                            <Button
+                              variant={!autoListenAfterTeacher ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setAutoListenAfterTeacher(false)}
+                            >
+                              Off
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {autoListenAfterTeacher ? 
+                            "Microphone will automatically activate after teacher speaks" : 
+                            "You'll need to manually activate the microphone"
+                          }
                         </div>
                       </div>
                     </div>
