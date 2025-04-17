@@ -43,6 +43,10 @@ export default function StablePractice() {
   const [activeMessage, setActiveMessage] = React.useState<number | null>(null);
   const [activeTeacherMessage, setActiveTeacherMessage] = React.useState("");
   
+  // Word tracking state
+  const [currentWord, setCurrentWord] = React.useState("");
+  const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
+  
   // Speech synthesis hook for improved audio
   const speech = useSpeechSynthesis({
     voice: 'nova',
@@ -65,15 +69,8 @@ export default function StablePractice() {
   // Speech state references from the hook
   const isSpeaking = speech.isSpeaking;
   const isLoadingAudio = speech.isLoading;
-  const [currentWord, setCurrentWord] = React.useState("");
-  const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
   
-  // Log feature flags on mount
-  React.useEffect(() => {
-    logFeatureState();
-  }, []);
-  
-  // Improved speech function using our new speech synthesis hook
+  // Speech function
   const speak = React.useCallback((text: string, messageId: number) => {
     // Don't speak if already speaking
     if (isSpeaking || isLoadingAudio) {
@@ -89,6 +86,20 @@ export default function StablePractice() {
     speech.setText(text);
     speech.speak();
   }, [isSpeaking, isLoadingAudio, speech, setActiveMessage, setActiveTeacherMessage]);
+  
+  // Auto-play welcome message on mount
+  React.useEffect(() => {
+    logFeatureState();
+    
+    // Auto-play welcome message on load if it exists
+    if (messages.length > 0 && messages[0].type === "teacher") {
+      setTimeout(() => {
+        const welcomeMsg = messages[0];
+        console.log("Auto-playing welcome message");
+        speak(welcomeMsg.content, welcomeMsg.id);
+      }, 500); // Add a short delay to ensure component is fully mounted
+    }
+  }, [messages, speak]);
   
   // Microphone recording functions
   const startRecording = () => {

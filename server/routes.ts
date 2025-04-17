@@ -555,7 +555,7 @@ export function registerRoutes(app: Express): Server {
             }
             
             const language = req.body.language || 'es';
-            log(`[API] Transcribing speech (${req.file.size} bytes) in language: ${language}`);
+            console.log(`[API] Transcribing speech (${req.file.size} bytes) in language: ${language}`);
             
             // Check file size to avoid hitting API limits
             const MAX_SIZE = 25 * 1024 * 1024; // 25MB limit for OpenAI
@@ -568,7 +568,7 @@ export function registerRoutes(app: Express): Server {
             
             try {
                 const transcription = await transcribeSpeech(req.file.buffer, language);
-                log(`[API] Transcription complete: "${transcription.substring(0, 50)}..."`);
+                console.log(`[API] Transcription complete: "${transcription.substring(0, 50)}..."`);
                 
                 res.json({ 
                     text: transcription,
@@ -602,14 +602,14 @@ export function registerRoutes(app: Express): Server {
     
     // Legacy endpoints for backward compatibility
     app.post("/api/text-to-speech", (req, res) => {
-        log("[API] Redirecting legacy TTS request to /api/speech/tts");
+        console.log("[API] Redirecting legacy TTS request to /api/speech/tts");
         // Forward to new endpoint
         req.url = '/api/speech/tts';
         app._router.handle(req, res);
     });
     
     app.post("/api/speech-to-text", upload.single('audio'), (req, res) => {
-        log("[API] Redirecting legacy STT request to /api/speech/transcribe");
+        console.log("[API] Redirecting legacy STT request to /api/speech/transcribe");
         // Forward to new endpoint
         req.url = '/api/speech/transcribe';
         app._router.handle(req, res);
