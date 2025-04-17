@@ -12,6 +12,7 @@ import Home from "@/pages/home";
 import Practice from "@/pages/practice";
 import SimplePractice from "@/pages/simple-practice";
 import SimpleVideoCall from "@/pages/simple-video";
+import StablePractice from "@/pages/stable-practice";
 import Settings from "@/pages/settings";
 import Progress from "@/pages/progress";
 import NotFound from "@/pages/not-found";
@@ -43,6 +44,10 @@ function Router() {
       
       <Route path="/video">
         <SimpleVideoCall />
+      </Route>
+      
+      <Route path="/stable">
+        <StablePractice />
       </Route>
 
       {/* Development direct access routes */}

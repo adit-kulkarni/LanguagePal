@@ -1,0 +1,379 @@
+import React from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { TeacherAvatar } from "@/components/teacher-avatar";
+import { VideoCallInterface } from "@/components/video-call-interface";
+import { FEATURE_FLAGS, MOCK_DATA, logFeatureState } from "@/lib/feature-flags";
+import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+export default function StablePractice() {
+  // UI state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isVideoCallOpen, setIsVideoCallOpen] = React.useState(false);
+  const isMobile = useIsMobile();
+  const { toast } = useToast();
+  
+  // Message state
+  const [messageIdCounter, setMessageIdCounter] = React.useState(1);
+  const [messages, setMessages] = React.useState<any[]>([
+    {
+      id: 0,
+      type: "teacher",
+      content: MOCK_DATA.teacherResponse.message,
+      translation: MOCK_DATA.teacherResponse.translation
+    }
+  ]);
+  
+  // Session state (simplified)
+  const [currentSession, setCurrentSession] = React.useState<{id: number, context: string} | null>(null);
+  
+  // Speech state
+  const [isSpeaking, setIsSpeaking] = React.useState(false);
+  const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
+  const [currentWord, setCurrentWord] = React.useState("");
+  const [activeMessage, setActiveMessage] = React.useState<number | null>(null);
+  const [activeTeacherMessage, setActiveTeacherMessage] = React.useState("");
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  
+  // Log feature flags on mount
+  React.useEffect(() => {
+    logFeatureState();
+  }, []);
+  
+  // Speech function using browser's built-in speech synthesis
+  const speak = React.useCallback((text: string, messageId: number) => {
+    // Don't speak if already speaking
+    if (isSpeaking) {
+      console.log("Already speaking, not starting new speech");
+      return;
+    }
+    
+    console.log(`Speaking message ID ${messageId}: ${text}`);
+    setActiveMessage(messageId);
+    setActiveTeacherMessage(text);
+    setIsVideoCallOpen(true);
+    
+    // Split text into words for animation
+    const words = text.split(/\s+/);
+    let wordIndex = 0;
+    
+    // Set speaking state
+    setIsSpeaking(true);
+    setSpeakingIntensity(1);
+    setCurrentWord(words[0] || "");
+    
+    // Estimate duration for word-by-word display
+    const averageWordDuration = 200; // milliseconds per word
+    const estimatedDuration = words.length * averageWordDuration;
+    const wordDuration = estimatedDuration / words.length;
+    
+    // Use browser's speech synthesis
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-ES'; // Spanish
+    utterance.rate = 0.9;     // Slightly slower
+    
+    // Animation interval for avatar
+    const animationInterval = setInterval(() => {
+      setSpeakingIntensity(prev => {
+        // Random fluctuation in intensity for more natural appearance
+        const randomFactor = Math.random() * 0.3;
+        return Math.max(0, 0.5 + randomFactor);
+      });
+    }, 150);
+    
+    // Word display interval
+    const wordInterval = setInterval(() => {
+      if (wordIndex < words.length) {
+        const word = words[wordIndex];
+        setCurrentWord(word);
+        wordIndex++;
+      } else {
+        clearInterval(wordInterval);
+      }
+    }, wordDuration);
+    
+    // Handle speech end
+    utterance.onend = () => {
+      clearInterval(animationInterval);
+      clearInterval(wordInterval);
+      setIsSpeaking(false);
+      setSpeakingIntensity(0);
+      setCurrentWord("");
+      setActiveMessage(null);
+      console.log("Speech ended");
+    };
+    
+    // Error handling
+    utterance.onerror = (event) => {
+      console.error("Speech synthesis error:", event);
+      clearInterval(animationInterval);
+      clearInterval(wordInterval);
+      setIsSpeaking(false);
+      setSpeakingIntensity(0);
+      setCurrentWord("");
+      setActiveMessage(null);
+    };
+    
+    // Start speaking
+    window.speechSynthesis.speak(utterance);
+    
+    // Fallback timeout
+    const maxSpeakingTime = 30000; // 30 seconds max
+    setTimeout(() => {
+      if (isSpeaking) {
+        clearInterval(animationInterval);
+        clearInterval(wordInterval);
+        setIsSpeaking(false);
+        setSpeakingIntensity(0);
+        setCurrentWord("");
+        setActiveMessage(null);
+        console.log("Speech timeout - forced end");
+      }
+    }, maxSpeakingTime);
+    
+    // Return cleanup function
+    return () => {
+      clearInterval(animationInterval);
+      clearInterval(wordInterval);
+      setIsSpeaking(false);
+      setSpeakingIntensity(0);
+      setCurrentWord("");
+      setActiveMessage(null);
+    };
+  }, [isSpeaking]);
+  
+  // Mock handle submit with no API calls
+  const handleSubmit = (text: string) => {
+    // Add user message
+    const userMessageId = messageIdCounter;
+    const userMessage = {
+      id: userMessageId,
+      type: "user",
+      content: text
+    };
+    setMessageIdCounter(prev => prev + 1);
+    setMessages(prev => [...prev, userMessage]);
+    
+    // Generate teacher response
+    let response = MOCK_DATA.responses.default;
+    
+    // Very simple response selection based on keywords
+    if (text.toLowerCase().includes("hola") || text.toLowerCase().includes("buenos")) {
+      response = MOCK_DATA.responses.greeting;
+    } else if (text.toLowerCase().includes("tiempo") || text.toLowerCase().includes("clima")) {
+      response = MOCK_DATA.responses.weather;
+    } else if (text.toLowerCase().includes("comida") || text.toLowerCase().includes("comer")) {
+      response = MOCK_DATA.responses.food;
+    }
+    
+    // Add teacher response after a short delay to simulate API call
+    setTimeout(() => {
+      const teacherMessage = {
+        id: messageIdCounter + 1,
+        type: "teacher",
+        content: response.message,
+        translation: response.translation,
+        userMessageId: userMessageId
+      };
+      setMessageIdCounter(prev => prev + 2);
+      setMessages(prev => [...prev, teacherMessage]);
+      
+      // Speak the teacher's response
+      speak(response.message, teacherMessage.id);
+    }, 500);
+  };
+  
+  // Start a new conversation
+  const handleNewChat = () => {
+    setCurrentSession(null);
+    const welcomeMessage = MOCK_DATA.teacherResponse.message;
+    const msgId = messageIdCounter;
+    setMessages([{
+      id: msgId,
+      type: "teacher",
+      content: welcomeMessage,
+      translation: MOCK_DATA.teacherResponse.translation
+    }]);
+    setMessageIdCounter(prev => prev + 1);
+    
+    // Speak welcome message
+    speak(welcomeMessage, msgId);
+  };
+  
+  return (
+    <div className="h-screen overflow-hidden flex flex-col md:flex-row relative">
+      {/* Mobile header with menu button */}
+      {isMobile && (
+        <div className="h-14 border-b px-4 flex items-center justify-between sticky top-0 bg-background z-20">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-9 w-9 p-0"
+            onClick={() => setIsMobileMenuOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <h1 className="font-bold text-lg">Spanish Practice (Stable)</h1>
+          {currentSession && (
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-9 w-9 p-0"
+              onClick={handleNewChat}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Desktop sidebar toggle button */}
+      {!isMobile && (
+        <div className="fixed top-4 md:left-[5.5rem] left-[4.5rem] z-50">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className={cn(
+              "transition-all duration-300 bg-background shadow-md border",
+              !isSidebarCollapsed && "ml-[264px]" // 264px = 72-4-4 (width - padding)
+            )}
+          >
+            {isSidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col overflow-hidden bg-accent/5">
+        <div className="flex-1 flex flex-col h-full">
+          {/* Greeting message */}
+          <Card className="mx-4 md:mx-8 mt-2 md:mt-4 bg-accent/10">
+            <CardContent className="p-3 md:p-4">
+              <p className="text-sm text-center text-muted-foreground">
+                Stable Practice Mode - Using browser speech synthesis
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Video Call Interface */}
+          <VideoCallInterface 
+            open={isVideoCallOpen}
+            onOpenChange={setIsVideoCallOpen}
+            teacherMessage={activeTeacherMessage}
+            onUserResponse={handleSubmit}
+            isSpeaking={isSpeaking}
+            currentWord={currentWord}
+            speakingIntensity={speakingIntensity}
+          />
+          
+          <ScrollArea className="flex-1 px-2 md:px-6 py-1 md:py-2">
+            <div className="space-y-2 max-w-3xl mx-auto">
+              {messages.map((message) => (
+                <Card 
+                  key={message.id} 
+                  className={cn(
+                    "shadow-sm",
+                    message.type === "user" ? "bg-accent/10" : "bg-background",
+                    isMobile && "border-l-4",
+                    isMobile && message.type === "user" ? "border-l-primary/70" : "",
+                    isMobile && message.type === "teacher" ? "border-l-secondary/70" : "",
+                    isSpeaking && activeMessage === message.id && "ring-1 ring-primary"
+                  )}
+                >
+                  <CardContent className={cn("space-y-2", isMobile ? "p-2.5" : "p-3")}>
+                    <div className="flex items-start gap-2">
+                      {message.type === "teacher" && (
+                        <div className="flex-shrink-0 pt-0.5">
+                          <TeacherAvatar
+                            className={isMobile ? "w-6 h-6" : "w-7 h-7"}
+                            speaking={isSpeaking && message.id === activeMessage}
+                            intensity={speakingIntensity}
+                            hideText={true}
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center">
+                          {message.type === "teacher" ? (
+                            <span className="font-semibold text-sm">Profesora Ana</span>
+                          ) : (
+                            <span className="font-semibold text-sm">You</span>
+                          )}
+                        </div>
+                        
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        
+                        {/* Show translation for teacher messages */}
+                        {message.type === "teacher" && message.translation && (
+                          <div className="pt-1 text-xs text-muted-foreground border-t mt-1">
+                            {message.translation}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Teacher-only action buttons */}
+                    {message.type === "teacher" && (
+                      <div className="flex justify-end gap-2 mt-1">
+                        <Button
+                          variant="ghost"
+                          size={isMobile ? "sm" : "default"}
+                          className={cn(
+                            "h-8 text-xs",
+                            isMobile && "px-2"
+                          )}
+                          onClick={() => speak(message.content, message.id)}
+                        >
+                          {isSpeaking && message.id === activeMessage ? "Speaking..." : "Speak"}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+          
+          {/* Message input at bottom */}
+          <div className="p-2 md:p-4 border-t">
+            <div className="max-w-3xl mx-auto flex">
+              <input
+                type="text"
+                placeholder="Type your message in Spanish..."
+                className="flex-1 p-2 border rounded-l-md"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                    handleSubmit((e.target as HTMLInputElement).value);
+                    (e.target as HTMLInputElement).value = '';
+                  }
+                }}
+              />
+              <Button 
+                className="rounded-l-none"
+                onClick={() => {
+                  const input = document.querySelector('input') as HTMLInputElement;
+                  if (input && input.value.trim()) {
+                    handleSubmit(input.value);
+                    input.value = '';
+                  }
+                }}
+              >
+                Send
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
