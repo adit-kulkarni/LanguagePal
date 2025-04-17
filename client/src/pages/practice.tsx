@@ -74,6 +74,15 @@ export default function Practice() {
   const [activeTeacherMessage, setActiveTeacherMessage] = React.useState<string>("");
   const isMobile = useIsMobile();
 
+  // Import at the top of the file
+  const { openAIAudioService } = React.useMemo(() => {
+    return { openAIAudioService: require("@/lib/openai-audio").openAIAudioService };
+  }, []);
+  
+  // Reference to audio element for playing TTS audio
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  
+  // Speak using OpenAI's TTS API
   const speak = React.useCallback((text: string, messageId?: number) => {
     // Reset current word and state
     setCurrentWord("");
@@ -91,103 +100,125 @@ export default function Practice() {
     // Open the video call interface
     setIsVideoCallOpen(true);
 
-    // Cancel any previous speech
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es-CO';
-    utterance.rate = 0.9;
-
-    utterance.onstart = () => {
-      console.log("Speech started");
-      setIsSpeaking(true);
-    };
+    // Make sure any previous audio is stopped
+    if (audioRef.current) {
+      audioRef.current.pause();
+      if (audioRef.current.src) {
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+    }
     
-    utterance.onend = () => {
-      console.log("Speech ended");
-      setIsSpeaking(false);
-      setSpeakingIntensity(0);
-      setCurrentWord("");
-      setActiveMessage(null);
-    };
+    // Set speaking to true immediately to show animation
+    setIsSpeaking(true);
     
-    utterance.onerror = (event) => {
-      console.error("Speech error:", event);
-      setIsSpeaking(false);
-      setSpeakingIntensity(0);
-      setCurrentWord("");
-      setActiveMessage(null);
-    };
-
-    // Instead of using the onboundary event which may not work reliably in all browsers,
-    // manually split the text into words and display them with timing
+    // Split the text into words for subtitle display
     const words = text.split(/\s+/);
     let wordIndex = 0;
     
-    // Set speaking to true immediately
-    setIsSpeaking(true);
-    
-    // Estimate speech duration based on word count and average speaking rate
-    const averageWordDuration = 300; // milliseconds per word (adjust as needed)
+    // Estimate how long each word should be displayed based on text length
+    // Assuming faster speech rate than browser's speech synthesis
+    const averageWordDuration = 200; // milliseconds per word for OpenAI TTS
     const estimatedDuration = words.length * averageWordDuration;
-    
-    // Calculate how long each word should be displayed
     const wordDuration = estimatedDuration / words.length;
     
     console.log(`Estimated speech duration: ${estimatedDuration}ms, ${words.length} words, ${wordDuration}ms per word`);
     
-    // Display words with timing
-    const wordInterval = setInterval(() => {
-      if (wordIndex < words.length) {
-        const word = words[wordIndex];
-        console.log(`Displaying word ${wordIndex}:`, word);
-        setCurrentWord(word);
+    // Use Nova voice by default (female Spanish speaker)
+    const voice = 'nova';
+    
+    // Generate speech using OpenAI API
+    openAIAudioService.textToSpeech(text, voice)
+      .then(audioUrl => {
+        // Create audio element if it doesn't exist
+        if (!audioRef.current) {
+          audioRef.current = new Audio();
+        }
         
-        // Update avatar animation
-        setSpeakingIntensity(1);
-        setTimeout(() => setSpeakingIntensity(0.5), 50);
-        setTimeout(() => setSpeakingIntensity(0.2), 100);
-        setTimeout(() => setSpeakingIntensity(0), 150);
-        
-        wordIndex++;
-      } else {
-        // Keep displaying the last word for a moment before finishing
-        setTimeout(() => {
-          clearInterval(wordInterval);
-          // Only clear subtitle display after a short delay to ensure the last word is seen
-          setTimeout(() => {
+        // Set up audio event handlers
+        audioRef.current.onplay = () => {
+          console.log("OpenAI TTS audio started playing");
+          setIsSpeaking(true);
+          
+          // Start displaying words with timing
+          const wordInterval = setInterval(() => {
+            if (wordIndex < words.length) {
+              const word = words[wordIndex];
+              setCurrentWord(word);
+              
+              // Update avatar animation
+              setSpeakingIntensity(1);
+              setTimeout(() => setSpeakingIntensity(0.5), 50);
+              setTimeout(() => setSpeakingIntensity(0.2), 100);
+              setTimeout(() => setSpeakingIntensity(0), 150);
+              
+              wordIndex++;
+            } else {
+              clearInterval(wordInterval);
+              // Ensure the last word stays visible until the audio ends
+            }
+          }, wordDuration);
+          
+          // Clean up interval when audio ends
+          audioRef.current!.onended = () => {
+            clearInterval(wordInterval);
+            console.log("OpenAI TTS audio finished");
             setIsSpeaking(false);
             setSpeakingIntensity(0);
             setCurrentWord("");
             setActiveMessage(null);
-          }, 500); // Wait 500ms after last word before hiding
-        }, 300);
-      }
-    }, wordDuration); // Dynamic timing based on text length
-    
-    // Clean up the interval if speech ends prematurely (e.g., if canceled)
-    utterance.onend = () => {
-      console.log("Speech ended, clearing interval");
-      clearInterval(wordInterval);
-      
-      // If we haven't shown all words yet, keep the popup visible for a moment
-      if (wordIndex < words.length) {
-        setTimeout(() => {
+            
+            // Clean up the audio URL
+            if (audioRef.current?.src) {
+              URL.revokeObjectURL(audioRef.current.src);
+              audioRef.current.src = "";
+            }
+          };
+        };
+        
+        // Set audio source and play
+        audioRef.current.src = audioUrl;
+        audioRef.current.play().catch(error => {
+          console.error("Error playing TTS audio:", error);
           setIsSpeaking(false);
           setSpeakingIntensity(0);
           setCurrentWord("");
           setActiveMessage(null);
-        }, 800); // Wait a bit longer if speech ended early
-      }
-    };
-
-    window.speechSynthesis.speak(utterance);
+        });
+      })
+      .catch(error => {
+        console.error("Error generating TTS:", error);
+        setIsSpeaking(false);
+        setSpeakingIntensity(0);
+        setCurrentWord("");
+        setActiveMessage(null);
+        
+        // Fallback to browser's speech synthesis if OpenAI TTS fails
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'es-CO';
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+        
+        toast({
+          title: "Speech synthesis fallback",
+          description: "Using browser's built-in speech synthesis as a fallback.",
+          variant: "destructive"
+        });
+      });
     
-    // Return a cleanup function to clear the interval if component unmounts
+    // Return a cleanup function
     return () => {
-      clearInterval(wordInterval);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        if (audioRef.current.src) {
+          URL.revokeObjectURL(audioRef.current.src);
+        }
+      }
+      setIsSpeaking(false);
+      setSpeakingIntensity(0);
+      setCurrentWord("");
+      setActiveMessage(null);
     };
-  }, [messages]);
+  }, [messages, toast]);
 
   React.useEffect(() => {
     async function initializeUser() {

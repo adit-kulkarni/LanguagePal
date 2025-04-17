@@ -484,6 +484,56 @@ export function registerRoutes(app: Express): Server {
         }
     });
 
+    // OpenAI Text-to-Speech endpoint
+    app.post("/api/text-to-speech", async (req, res) => {
+        try {
+            const schema = z.object({
+                text: z.string().min(1).max(4000),
+                voice: z.enum(['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']).default('nova')
+            });
+            
+            const { text, voice } = schema.parse(req.body);
+            console.log(`Generating speech for text: "${text.substring(0, 30)}..." with voice ${voice}`);
+            
+            const audioBuffer = await generateSpeech(text, voice);
+            
+            // Set appropriate headers for audio streaming
+            res.setHeader('Content-Type', 'audio/mpeg');
+            res.setHeader('Content-Length', audioBuffer.length);
+            
+            // Send the audio data
+            res.send(audioBuffer);
+        } catch (error) {
+            console.error('Text-to-speech error:', error);
+            res.status(500).json({ 
+                message: "Failed to generate speech", 
+                error: error instanceof Error ? error.message : String(error) 
+            });
+        }
+    });
+
+    // OpenAI Speech-to-Text endpoint
+    app.post("/api/speech-to-text", upload.single('audio'), async (req, res) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ message: "No audio file provided" });
+            }
+            
+            const language = req.body.language || 'es';
+            console.log(`Transcribing speech (${req.file.size} bytes) in language: ${language}`);
+            
+            const transcription = await transcribeSpeech(req.file.buffer, language);
+            
+            res.json({ transcription });
+        } catch (error) {
+            console.error('Speech-to-text error:', error);
+            res.status(500).json({ 
+                message: "Failed to transcribe speech", 
+                error: error instanceof Error ? error.message : String(error) 
+            });
+        }
+    });
+
     const httpServer = createServer(app);
     return httpServer;
 }
