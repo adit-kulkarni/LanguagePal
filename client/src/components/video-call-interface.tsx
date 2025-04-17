@@ -91,6 +91,22 @@ export function VideoCallInterface({
           onUserResponse(transcript.trim());
           stopRecording();
         }
+        
+        // If there's a pause in speaking (silence detection)
+        // This helps prevent the loop where the microphone picks up teacher's audio
+        if (transcript.trim() && transcript.trim().length > 3 && !transcript.endsWith('...')) {
+          // Create a timeout to stop recording if the user pauses for more than 2 seconds
+          const silenceTimeout = setTimeout(() => {
+            // Only stop if we're still recording and the transcript hasn't changed
+            if (isRecording) {
+              console.log("Silence detected, stopping microphone");
+              stopRecording();
+            }
+          }, 2000);
+          
+          // Clear previous timeout
+          return () => clearTimeout(silenceTimeout);
+        }
       });
     } catch (error) {
       console.error("Error starting speech recognition:", error);
