@@ -10,6 +10,7 @@ import AuthPage from "@/pages/auth-page";
 import AuthCallback from "@/pages/auth-callback";
 import Home from "@/pages/home";
 import Practice from "@/pages/practice";
+import SimplePractice from "@/pages/simple-practice";
 import Settings from "@/pages/settings";
 import Progress from "@/pages/progress";
 import NotFound from "@/pages/not-found";
@@ -30,9 +31,13 @@ function Router() {
 
   return (
     <Switch>
-      {/* Simplified test page with no dependencies */}
+      {/* Simplified test pages with no dependencies */}
       <Route path="/test">
         <TestPage />
+      </Route>
+      
+      <Route path="/simple">
+        <SimplePractice />
       </Route>
 
       {/* Development direct access routes */}
