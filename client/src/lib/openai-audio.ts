@@ -1,423 +1,247 @@
 /**
- * Service for handling OpenAI Text-to-Speech and Speech-to-Text
+ * Client-side service for OpenAI audio functionality
+ * Handles text-to-speech and speech-to-text via server API
+ * Implements caching and preloading for improved performance
  */
-export class OpenAIAudioService {
-  // Cache for audio to prevent repeated API calls for the same text
-  private audioCache: Map<string, string> = new Map();
-  private audioElements: Map<string, HTMLAudioElement> = new Map();
-  private preloadQueue: string[] = [];
-  private isPreloading = false;
-  private isBrowserSupported: boolean;
 
+interface AudioCacheItem {
+  url: string;
+  audioElement?: HTMLAudioElement;
+  createdAt: number;
+}
+
+class OpenAIAudioService {
+  private audioCache: Map<string, AudioCacheItem> = new Map();
+  private cacheTTL = 1000 * 60 * 10; // 10 minutes
+  private isRecording = false;
+  private audioContext: AudioContext | null = null;
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
+  
   constructor() {
-    // Check if browser supports required audio and media features
-    this.isBrowserSupported = typeof window !== 'undefined' && 
-      !!window.AudioContext && 
-      !!navigator.mediaDevices?.getUserMedia;
-    
-    if (!this.isBrowserSupported) {
-      console.warn('Browser does not fully support required audio features');
-    }
+    // Setup a garbage collector for the audio cache
+    setInterval(() => this.cleanupCache(), this.cacheTTL / 2);
   }
-
+  
   /**
-   * Preloads the audio for a text to reduce lag when it's actually needed
-   * @param text The text to convert to speech
-   * @param voice The voice to use
+   * Convert text to speech using OpenAI TTS API via our backend
+   * Returns a cached URL if available or fetches a new one
    */
-  async preloadAudio(text: string, voice: string = 'nova'): Promise<void> {
-    // Don't preload if already in cache
-    const cacheKey = `${text}:${voice}`;
-    if (this.audioCache.has(cacheKey)) {
-      return;
-    }
-
-    // Add to queue and process if not already preloading
-    this.preloadQueue.push(cacheKey);
-    
-    if (!this.isPreloading) {
-      this.processPreloadQueue();
-    }
-  }
-
-  /**
-   * Process the preload queue one by one
-   */
-  private async processPreloadQueue(): Promise<void> {
-    if (this.preloadQueue.length === 0 || this.isPreloading) {
-      return;
-    }
-
-    this.isPreloading = true;
-    
-    while (this.preloadQueue.length > 0) {
-      const cacheKey = this.preloadQueue.shift()!;
-      const [text, voice] = cacheKey.split(':');
-      
-      try {
-        // Fetch the audio but don't create an audio element yet
-        const audioUrl = await this._fetchAudio(text, voice);
-        this.audioCache.set(cacheKey, audioUrl);
-        
-        // Create and prepare audio element
-        const audio = new Audio();
-        audio.src = audioUrl;
-        audio.load(); // Start loading the audio data
-        this.audioElements.set(cacheKey, audio);
-        
-        // Wait a bit between preloads to not overwhelm the network
-        await new Promise(resolve => setTimeout(resolve, 200));
-      } catch (error) {
-        console.error('Error preloading audio:', error);
-        // Continue with next item even if there's an error
-      }
-    }
-    
-    this.isPreloading = false;
-  }
-
-  /**
-   * Internal method to fetch audio from the server
-   */
-  private async _fetchAudio(text: string, voice: string): Promise<string> {
-    console.log(`Fetching audio for: "${text.substring(0, 30)}..."`);
-    
-    const response = await fetch('/api/text-to-speech', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text, voice }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Unknown error' }));
-      throw new Error(error.message || `Failed to generate speech: ${response.status}`);
-    }
-
-    // Convert the response to a blob and create a URL
-    const audioBlob = await response.blob();
-    return URL.createObjectURL(audioBlob);
-  }
-
-  /**
-   * Converts text to speech using OpenAI's TTS service
-   * @param text The text to convert to speech
-   * @param voice The voice to use (alloy, echo, fable, onyx, nova, shimmer)
-   * @returns URL to an audio blob and the Audio element for playback control
-   */
-  async textToSpeech(text: string, voice: string = 'nova'): Promise<string> {
-    if (!text || text.trim() === '') {
-      throw new Error('No text provided for speech generation');
-    }
-    
-    // Generate a unique cache key
+  async textToSpeech(text: string, voice = 'nova'): Promise<string> {
     const cacheKey = `${text}:${voice}`;
     
-    // Check if we already have this audio in the cache
+    // Check if we have the audio in cache
     if (this.audioCache.has(cacheKey)) {
-      console.log('Using cached audio');
-      return this.audioCache.get(cacheKey)!;
+      console.log('Using cached audio for:', text.substring(0, 30) + '...');
+      const cachedItem = this.audioCache.get(cacheKey)!;
+      // Update the timestamp to keep this entry "fresh"
+      cachedItem.createdAt = Date.now();
+      return cachedItem.url;
     }
     
-    // Fetch the audio
+    // Otherwise fetch the audio from the server
     try {
-      const audioUrl = await this._fetchAudio(text, voice);
+      console.log('Fetching audio for:', text.substring(0, 30) + '...');
+      const response = await fetch('/api/speech/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text, voice }),
+      });
       
-      // Store in cache for future use
-      this.audioCache.set(cacheKey, audioUrl);
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
       
-      // Create and prepare audio element
-      const audio = new Audio();
-      audio.src = audioUrl;
-      audio.load(); // Start loading the audio data
-      this.audioElements.set(cacheKey, audio);
+      // Get the audio data and create a blob URL
+      const audioData = await response.arrayBuffer();
+      const blob = new Blob([audioData], { type: 'audio/mpeg' });
+      const url = URL.createObjectURL(blob);
       
-      return audioUrl;
+      // Create a new audio element to cache
+      const audio = new Audio(url);
+      audio.preload = 'auto';
+      
+      // Add to cache with current timestamp
+      this.audioCache.set(cacheKey, {
+        url,
+        audioElement: audio,
+        createdAt: Date.now()
+      });
+      
+      return url;
     } catch (error) {
-      console.error('Error generating speech:', error);
+      console.error('Error fetching audio:', error);
       throw error;
     }
   }
-
+  
   /**
-   * Get the Audio element for a previously generated speech
-   * @param text The text that was converted to speech
-   * @param voice The voice that was used
-   * @returns The Audio element or null if not found
+   * Return a cached audio element if available
    */
-  getAudioElement(text: string, voice: string = 'nova'): HTMLAudioElement | null {
+  getAudioElement(text: string, voice = 'nova'): HTMLAudioElement | null {
     const cacheKey = `${text}:${voice}`;
-    return this.audioElements.get(cacheKey) || null;
+    const cachedItem = this.audioCache.get(cacheKey);
+    return cachedItem?.audioElement || null;
   }
-
+  
   /**
-   * Clears a specific audio from the cache
-   * @param text The text that was converted to speech
-   * @param voice The voice that was used
+   * Preload audio for a given text for quicker playback later
    */
-  clearCache(text: string, voice: string = 'nova'): void {
+  async preloadAudio(text: string, voice = 'nova'): Promise<void> {
     const cacheKey = `${text}:${voice}`;
     
+    // Skip if already cached
     if (this.audioCache.has(cacheKey)) {
-      URL.revokeObjectURL(this.audioCache.get(cacheKey)!);
-      this.audioCache.delete(cacheKey);
+      return;
     }
-    
-    if (this.audioElements.has(cacheKey)) {
-      this.audioElements.delete(cacheKey);
-    }
-  }
-
-  /**
-   * Clears all cached audio
-   */
-  clearAllCache(): void {
-    // Revoke all object URLs to prevent memory leaks
-    this.audioCache.forEach(url => URL.revokeObjectURL(url));
-    
-    // Clear collections
-    this.audioCache.clear();
-    this.audioElements.clear();
-    this.preloadQueue = [];
-  }
-
-  /**
-   * Transcribes speech to text using OpenAI's Whisper API
-   * @param audioBlob The audio blob to transcribe
-   * @param language The language of the audio (e.g., 'es' for Spanish)
-   * @returns The transcribed text
-   */
-  async speechToText(audioBlob: Blob, language: string = 'es'): Promise<string> {
-    if (!audioBlob || audioBlob.size === 0) {
-      throw new Error('No audio data provided for transcription');
-    }
-    
-    console.log(`Transcribing speech (${audioBlob.size} bytes)`);
     
     try {
-      const formData = new FormData();
-      formData.append('audio', audioBlob);
-      formData.append('language', language);
+      // Fetch the audio but don't block on it
+      await this.textToSpeech(text, voice);
+      console.log('Preloaded audio for:', text.substring(0, 30) + '...');
+    } catch (error) {
+      console.error('Error preloading audio:', error);
+    }
+  }
+  
+  /**
+   * Clean up old cache entries to prevent memory leaks
+   */
+  private cleanupCache(): void {
+    const now = Date.now();
+    
+    // Find expired entries
+    for (const [key, item] of this.audioCache.entries()) {
+      if (now - item.createdAt > this.cacheTTL) {
+        // Revoke the blob URL to free memory
+        URL.revokeObjectURL(item.url);
+        this.audioCache.delete(key);
+      }
+    }
+  }
 
-      // Log before sending request
-      console.log('Sending speech-to-text request...');
+  /**
+   * Create a recorder for speech-to-text functionality
+   */
+  createRecorder() {
+    const startRecording = async () => {
+      if (this.isRecording) return;
       
-      const response = await fetch('/api/speech-to-text', {
+      this.isRecording = true;
+      this.audioChunks = [];
+      
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Initialize audio context if needed
+        if (!this.audioContext) {
+          this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        
+        // Setup media recorder
+        this.mediaRecorder = new MediaRecorder(stream);
+        
+        this.mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            this.audioChunks.push(event.data);
+          }
+        };
+        
+        this.mediaRecorder.start();
+        console.log('Recording started');
+        
+        return true;
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        this.isRecording = false;
+        return false;
+      }
+    };
+    
+    const stopRecording = (): Promise<Blob | null> => {
+      return new Promise((resolve) => {
+        if (!this.isRecording || !this.mediaRecorder) {
+          resolve(null);
+          return;
+        }
+        
+        this.mediaRecorder.onstop = () => {
+          console.log('Recording stopped, chunks:', this.audioChunks.length);
+          
+          if (this.audioChunks.length === 0) {
+            resolve(null);
+            return;
+          }
+          
+          const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+          this.audioChunks = [];
+          this.isRecording = false;
+          
+          // Stop all tracks in the stream
+          if (this.mediaRecorder && this.mediaRecorder.stream) {
+            this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+          }
+          
+          resolve(audioBlob);
+        };
+        
+        this.mediaRecorder.stop();
+      });
+    };
+    
+    const cancelRecording = () => {
+      if (this.mediaRecorder && this.isRecording) {
+        this.mediaRecorder.stop();
+        
+        // Stop all tracks in the stream
+        if (this.mediaRecorder.stream) {
+          this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+        
+        this.audioChunks = [];
+        this.isRecording = false;
+      }
+    };
+    
+    return {
+      startRecording,
+      stopRecording,
+      cancelRecording,
+      isRecording: () => this.isRecording
+    };
+  }
+  
+  /**
+   * Transcribe audio using OpenAI Whisper API via our backend
+   */
+  async transcribeAudio(audioBlob: Blob, language = 'es'): Promise<string> {
+    try {
+      // Convert blob to file with appropriate name
+      const file = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+      
+      // Create form data
+      const formData = new FormData();
+      formData.append('audio', file);
+      formData.append('language', language);
+      
+      // Send to server
+      const response = await fetch('/api/speech/transcribe', {
         method: 'POST',
         body: formData,
       });
-
-      // Log after receiving response
-      console.log('Received speech-to-text response:', response.status);
-
+      
       if (!response.ok) {
-        const errorText = await response.text();
-        let errorObj;
-        try {
-          errorObj = JSON.parse(errorText);
-        } catch (e) {
-          errorObj = { message: errorText || 'Failed to transcribe speech' };
-        }
-        throw new Error(errorObj.message || `Server returned ${response.status}`);
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
       }
-
+      
       const data = await response.json();
-      console.log('Transcription result:', data.transcription);
-      return data.transcription;
+      return data.text || '';
     } catch (error) {
-      console.error('Error transcribing speech:', error);
+      console.error('Transcription error:', error);
       throw error;
     }
-  }
-
-  /**
-   * Records audio from the microphone
-   * @param onStart Callback when recording starts
-   * @param onStop Callback when recording stops with the audio blob
-   * @param maxDurationMs Maximum recording duration in milliseconds (default 30 seconds)
-   * @returns A controller object with start() and stop() methods
-   */
-  createRecorder(
-    onStart: () => void,
-    onStop: (blob: Blob) => void,
-    maxDurationMs: number = 30000
-  ) {
-    let mediaRecorder: MediaRecorder | null = null;
-    let recordedChunks: BlobPart[] = [];
-    let recordingTimeout: NodeJS.Timeout | null = null;
-    let stream: MediaStream | null = null;
-    let audioContext: AudioContext | null = null;
-    let analyser: AnalyserNode | null = null;
-    let silenceDetectionInterval: NodeJS.Timeout | null = null;
-    let silenceStart: number | null = null;
-    
-    // Configuration
-    const silenceThreshold = -65; // dB, adjust based on testing
-    const silenceDuration = 1500; // ms of silence before auto-stopping
-    
-    const cleanup = () => {
-      if (silenceDetectionInterval) {
-        clearInterval(silenceDetectionInterval);
-        silenceDetectionInterval = null;
-      }
-      
-      if (recordingTimeout) {
-        clearTimeout(recordingTimeout);
-        recordingTimeout = null;
-      }
-      
-      if (audioContext) {
-        audioContext.close().catch(console.error);
-        audioContext = null;
-        analyser = null;
-      }
-      
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-      }
-      
-      mediaRecorder = null;
-      recordedChunks = [];
-      silenceStart = null;
-    };
-    
-    // Calculate decibel level from audio data
-    const getDecibelLevel = (dataArray: Uint8Array): number => {
-      let sum = 0;
-      for (let i = 0; i < dataArray.length; i++) {
-        sum += dataArray[i];
-      }
-      const average = sum / dataArray.length;
-      // Convert to decibels (rough approximation)
-      return 20 * Math.log10(average / 255);
-    };
-    
-    const controller = {
-      start: async () => {
-        recordedChunks = [];
-        try {
-          console.log('Requesting microphone access...');
-          
-          // Request microphone access with specific constraints for better quality
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-              sampleRate: 44100,
-            } 
-          });
-          
-          console.log('Microphone access granted');
-          
-          // Set up audio analysis for silence detection
-          audioContext = new AudioContext();
-          const source = audioContext.createMediaStreamSource(stream);
-          analyser = audioContext.createAnalyser();
-          analyser.fftSize = 256;
-          analyser.smoothingTimeConstant = 0.8;
-          source.connect(analyser);
-          
-          const dataArray = new Uint8Array(analyser.frequencyBinCount);
-          
-          // Set up silence detection
-          silenceDetectionInterval = setInterval(() => {
-            if (!analyser) return;
-            
-            analyser.getByteFrequencyData(dataArray);
-            const decibels = getDecibelLevel(dataArray);
-            
-            // Log every 10 intervals for debugging (approximately once per second)
-            if (Math.random() < 0.1) {
-              console.log(`Audio level: ${decibels.toFixed(2)} dB`);
-            }
-            
-            if (decibels < silenceThreshold) {
-              // If silence just started, record the time
-              if (silenceStart === null) {
-                silenceStart = Date.now();
-              } 
-              // If silence has continued for the threshold duration, stop recording
-              else if (Date.now() - silenceStart > silenceDuration && mediaRecorder?.state === 'recording') {
-                console.log('Silence detected, stopping recording');
-                controller.stop();
-              }
-            } else {
-              // Reset silence timer if sound is detected
-              silenceStart = null;
-            }
-          }, 100);
-          
-          // Set up media recorder
-          mediaRecorder = new MediaRecorder(stream, {
-            mimeType: 'audio/webm;codecs=opus',
-            audioBitsPerSecond: 128000
-          });
-          
-          mediaRecorder.ondataavailable = (event) => {
-            if (event.data && event.data.size > 0) {
-              recordedChunks.push(event.data);
-            }
-          };
-          
-          mediaRecorder.onstop = () => {
-            // Stop all monitoring
-            cleanup();
-            
-            // Combine recorded chunks into a single blob if we have data
-            if (recordedChunks.length > 0) {
-              const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
-              console.log(`Recording complete: ${audioBlob.size} bytes`);
-              onStop(audioBlob);
-            } else {
-              console.error('No audio data recorded');
-              onStop(new Blob([], { type: 'audio/webm' }));
-            }
-          };
-          
-          mediaRecorder.onerror = (event) => {
-            console.error('Media recorder error:', event);
-            cleanup();
-          };
-          
-          // Start recording and request data every 1 second for more responsive silence detection
-          mediaRecorder.start(1000);
-          console.log('Recording started');
-          onStart();
-          
-          // Set a timeout to automatically stop recording after maxDurationMs
-          recordingTimeout = setTimeout(() => {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-              console.log('Max duration reached, stopping recording');
-              controller.stop();
-            }
-          }, maxDurationMs);
-          
-          return true;
-        } catch (error) {
-          console.error('Error starting audio recording:', error);
-          cleanup();
-          return false;
-        }
-      },
-      
-      stop: () => {
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-          console.log('Manually stopping recording');
-          mediaRecorder.stop();
-          return true;
-        }
-        return false;
-      },
-      
-      isRecording: () => {
-        return mediaRecorder !== null && mediaRecorder.state === 'recording';
-      }
-    };
-    
-    return controller;
   }
 }
 

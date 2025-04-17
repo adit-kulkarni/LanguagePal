@@ -6,6 +6,7 @@ import { VideoCallInterface } from "@/components/video-call-interface";
 import { FEATURE_FLAGS, MOCK_DATA, logFeatureState } from "@/lib/feature-flags";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSpeechSynthesis } from "@/hooks/use-speech-synthesis";
 import { Menu, X, ChevronLeft, ChevronRight, MicOff, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,213 +35,61 @@ export default function StablePractice() {
   // Session state (simplified)
   const [currentSession, setCurrentSession] = React.useState<{id: number, context: string} | null>(null);
   
-  // Speech state
-  const [isSpeaking, setIsSpeaking] = React.useState(false);
-  const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
-  const [currentWord, setCurrentWord] = React.useState("");
-  const [activeMessage, setActiveMessage] = React.useState<number | null>(null);
-  const [activeTeacherMessage, setActiveTeacherMessage] = React.useState("");
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
-  
   // Microphone state
   const [isRecording, setIsRecording] = React.useState(false);
   const [recordedText, setRecordedText] = React.useState("");
+  
+  // Active message state
+  const [activeMessage, setActiveMessage] = React.useState<number | null>(null);
+  const [activeTeacherMessage, setActiveTeacherMessage] = React.useState("");
+  
+  // Speech synthesis hook for improved audio
+  const speech = useSpeechSynthesis({
+    voice: 'nova',
+    preload: true,
+    onStart: () => {
+      console.log("Speech started");
+      setIsVideoCallOpen(true);
+    },
+    onEnd: () => {
+      console.log("Speech ended");
+    },
+    onWord: (word) => {
+      setCurrentWord(word);
+    },
+    onSpeakingIntensity: (intensity) => {
+      setSpeakingIntensity(intensity);
+    }
+  });
+  
+  // Speech state references from the hook
+  const isSpeaking = speech.isSpeaking;
+  const isLoadingAudio = speech.isLoading;
+  const [currentWord, setCurrentWord] = React.useState("");
+  const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
   
   // Log feature flags on mount
   React.useEffect(() => {
     logFeatureState();
   }, []);
   
-  // Speech function using OpenAI or browser speech synthesis based on feature flag
-  const speak = React.useCallback(async (text: string, messageId: number) => {
+  // Improved speech function using our new speech synthesis hook
+  const speak = React.useCallback((text: string, messageId: number) => {
     // Don't speak if already speaking
-    if (isSpeaking) {
-      console.log("Already speaking, not starting new speech");
+    if (isSpeaking || isLoadingAudio) {
+      console.log("Already speaking or loading audio, not starting new speech");
       return;
     }
     
     console.log(`Speaking message ID ${messageId}: ${text}`);
     setActiveMessage(messageId);
     setActiveTeacherMessage(text);
-    setIsVideoCallOpen(true);
     
-    // Split text into words for animation
-    const words = text.split(/\s+/);
-    let wordIndex = 0;
-    
-    // Set speaking state
-    setIsSpeaking(true);
-    setSpeakingIntensity(1);
-    setCurrentWord(words[0] || "");
-    
-    // Estimate duration for word-by-word display
-    const averageWordDuration = 200; // milliseconds per word
-    const estimatedDuration = words.length * averageWordDuration;
-    const wordDuration = estimatedDuration / words.length;
-    
-    // Animation interval for avatar (runs immediately)
-    setSpeakingIntensity(0.8);
-    const animationInterval = setInterval(() => {
-      setSpeakingIntensity(prev => {
-        // Random fluctuation in intensity for more natural appearance
-        const randomFactor = Math.random() * 0.3;
-        return Math.max(0, 0.5 + randomFactor);
-      });
-    }, 150);
-    
-    // Set initial word immediately
-    setCurrentWord(words[0] || "");
-    let startTime = Date.now();
-    
-    // Word display interval - more accurately timed to audio
-    const wordInterval = setInterval(() => {
-      const elapsedTime = Date.now() - startTime;
-      const expectedWordIndex = Math.floor(elapsedTime / wordDuration);
-      
-      if (expectedWordIndex < words.length && expectedWordIndex !== wordIndex) {
-        wordIndex = expectedWordIndex;
-        setCurrentWord(words[wordIndex]);
-      } else if (expectedWordIndex >= words.length) {
-        clearInterval(wordInterval);
-      }
-    }, 50); // Update more frequently for smoother word transitions
-    
-    // Handle speech cleanup
-    const cleanupSpeech = () => {
-      clearInterval(animationInterval);
-      clearInterval(wordInterval);
-      setIsSpeaking(false);
-      setSpeakingIntensity(0);
-      setCurrentWord("");
-      setActiveMessage(null);
-      
-      // Stop any playing audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-
-    // Decide which speech method to use based on feature flag
-    if (FEATURE_FLAGS.ENABLE_OPENAI_AUDIO) {
-      try {
-        // Use OpenAI TTS API (higher quality voice)
-        console.log("Using OpenAI TTS API");
-        
-        // Create audio element if it doesn't exist
-        if (!audioRef.current) {
-          audioRef.current = new Audio();
-        }
-        
-        // Start a timeout for loading indication
-        const loadingTimeout = setTimeout(() => {
-          toast({
-            title: "Loading teacher's voice",
-            description: "This might take a moment...",
-          });
-        }, 800); // Show loading message if it takes more than 800ms
-        
-        // Get audio URL from OpenAI service
-        const audioUrl = await openAIAudioService.textToSpeech(text, 'nova');
-        
-        // Clear loading timeout
-        clearTimeout(loadingTimeout);
-        
-        // Set source and prepare audio
-        audioRef.current.src = audioUrl;
-        audioRef.current.oncanplaythrough = () => {
-          // Reset timer for word display to sync with actual audio start
-          startTime = Date.now();
-          wordIndex = 0;
-          setCurrentWord(words[0] || "");
-        };
-        
-        // Set up event handlers
-        audioRef.current.onended = () => {
-          console.log("OpenAI TTS speech ended");
-          cleanupSpeech();
-        };
-        
-        audioRef.current.onerror = (err) => {
-          console.error("OpenAI TTS error:", err);
-          cleanupSpeech();
-          
-          // Try fallback to browser speech
-          toast({
-            title: "Speech error",
-            description: "Falling back to browser speech synthesis",
-            variant: "destructive",
-          });
-          
-          // Use browser's speech synthesis as fallback
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'es-ES';
-          utterance.rate = 0.9;
-          window.speechSynthesis.speak(utterance);
-        };
-        
-        // Start playback
-        try {
-          await audioRef.current.play();
-        } catch (playError) {
-          console.error("Error playing audio:", playError);
-          cleanupSpeech();
-          
-          // Fallback to browser speech
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'es-ES';
-          utterance.rate = 0.9;
-          window.speechSynthesis.speak(utterance);
-        }
-      } catch (error) {
-        console.error("Error with OpenAI TTS:", error);
-        cleanupSpeech();
-        
-        // Use browser's speech synthesis as fallback
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'es-ES';
-        utterance.rate = 0.9;
-        utterance.onend = () => console.log("Browser speech ended (fallback)");
-        window.speechSynthesis.speak(utterance);
-      }
-    } else {
-      // Use browser's built-in speech synthesis
-      console.log("Using browser speech synthesis");
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'es-ES'; // Spanish
-      utterance.rate = 0.9;     // Slightly slower
-      
-      // Handle speech end
-      utterance.onend = () => {
-        console.log("Browser speech ended");
-        cleanupSpeech();
-      };
-      
-      // Error handling
-      utterance.onerror = (event) => {
-        console.error("Speech synthesis error:", event);
-        cleanupSpeech();
-      };
-      
-      // Start speaking
-      window.speechSynthesis.speak(utterance);
-    }
-    
-    // Fallback timeout
-    const maxSpeakingTime = 30000; // 30 seconds max
-    setTimeout(() => {
-      if (isSpeaking) {
-        console.log("Speech timeout - forced end");
-        cleanupSpeech();
-      }
-    }, maxSpeakingTime);
-    
-    // Return cleanup function
-    return () => {
-      cleanupSpeech();
-    };
-  }, [isSpeaking, toast]);
-
+    // Set the text in the speech hook and trigger speaking
+    speech.setText(text);
+    speech.speak();
+  }, [isSpeaking, isLoadingAudio, speech, setActiveMessage, setActiveTeacherMessage]);
+  
   // Microphone recording functions
   const startRecording = () => {
     if (isRecording) return;
@@ -451,111 +300,111 @@ export default function StablePractice() {
                   key={message.id} 
                   className={cn(
                     "shadow-sm",
-                    message.type === "user" ? "bg-accent/10" : "bg-background",
-                    isMobile && "border-l-4",
-                    isMobile && message.type === "user" ? "border-l-primary/70" : "",
-                    isMobile && message.type === "teacher" ? "border-l-secondary/70" : "",
-                    isSpeaking && activeMessage === message.id && "ring-1 ring-primary"
+                    message.type === "user" ? "bg-primary/5" : "bg-background",
+                    activeMessage === message.id && isSpeaking && "border-primary"
                   )}
                 >
-                  <CardContent className={cn("space-y-2", isMobile ? "p-2.5" : "p-3")}>
-                    <div className="flex items-start gap-2">
-                      {message.type === "teacher" && (
-                        <div className="flex-shrink-0 pt-0.5">
-                          <TeacherAvatar
-                            className={isMobile ? "w-6 h-6" : "w-7 h-7"}
-                            speaking={isSpeaking && message.id === activeMessage}
-                            intensity={speakingIntensity}
-                            hideText={true}
+                  <CardContent className="p-3 md:p-4">
+                    <div className={cn(
+                      "flex items-start gap-3",
+                      message.type === "user" ? "flex-row-reverse" : "flex-row"
+                    )}>
+                      {/* Avatar */}
+                      <div className={cn(
+                        "flex-shrink-0",
+                        message.type === "user" ? "mt-1" : "-mt-1"
+                      )}>
+                        {message.type === "teacher" ? (
+                          <TeacherAvatar 
+                            className="w-10 h-10"
+                            speaking={activeMessage === message.id && isSpeaking}
+                            intensity={activeMessage === message.id ? speakingIntensity : 0}
+                            hideText
                           />
-                        </div>
-                      )}
-                      
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center">
-                          {message.type === "teacher" ? (
-                            <span className="font-semibold text-sm">Profesora Ana</span>
-                          ) : (
-                            <span className="font-semibold text-sm">You</span>
-                          )}
-                        </div>
-                        
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                        
-                        {/* Show translation for teacher messages */}
-                        {message.type === "teacher" && message.translation && (
-                          <div className="pt-1 text-xs text-muted-foreground border-t mt-1">
-                            <span className="italic">Translation:</span> {message.translation}
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium">
+                            👤
                           </div>
                         )}
                       </div>
-                    </div>
-                    
-                    {/* Teacher-only action buttons */}
-                    {message.type === "teacher" && (
-                      <div className="flex justify-end gap-2 mt-1">
-                        <Button
-                          variant="ghost"
-                          size={isMobile ? "sm" : "default"}
+                      
+                      {/* Message content */}
+                      <div className={cn(
+                        "flex-1",
+                        message.type === "user" ? "text-right" : "text-left"
+                      )}>
+                        <div 
                           className={cn(
-                            "h-8 text-xs",
-                            isMobile && "px-2"
+                            "inline-block rounded-lg text-left",
+                            message.type === "teacher" && "text-primary-foreground"
                           )}
-                          onClick={() => speak(message.content, message.id)}
                         >
-                          {isSpeaking && message.id === activeMessage ? "Speaking..." : "Speak"}
-                        </Button>
+                          <p>{message.content}</p>
+                          
+                          {/* Translation */}
+                          {message.translation && !isSpeaking && (
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {message.translation}
+                            </p>
+                          )}
+                          
+                          {/* Current word highlight (only show during speaking) */}
+                          {activeMessage === message.id && isSpeaking && currentWord && (
+                            <div className="mt-2 inline-block bg-primary/10 px-2 py-1 rounded text-primary animate-pulse">
+                              {currentWord}
+                            </div>
+                          )}
+                          
+                          {/* Playback controls */}
+                          {message.type === "teacher" && !isSpeaking && (
+                            <div className="mt-2 flex items-center justify-start gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs"
+                                onClick={() => speak(message.content, message.id)}
+                              >
+                                Play Audio
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           </ScrollArea>
           
-          {/* Message input at bottom */}
-          <div className="p-2 md:p-4 border-t">
-            <div className="max-w-3xl mx-auto">
-              {/* Speech recognition status */}
-              {recordedText && (
-                <div className="mb-2 p-2 bg-accent/20 rounded-md text-sm">
-                  <p className="text-muted-foreground">Detected: <span className="font-medium text-foreground">{recordedText}</span></p>
-                </div>
-              )}
+          {/* Input controls */}
+          <div className="border-t bg-background p-2 md:p-4">
+            <div className="max-w-3xl mx-auto flex gap-2 items-center">
+              <Button
+                variant={isRecording ? "destructive" : "default"}
+                size="icon"
+                className="rounded-full h-10 w-10"
+                onClick={toggleMicrophone}
+              >
+                {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
               
-              <div className="flex">
-                <Button
-                  variant={isRecording ? "destructive" : "outline"}
-                  size="icon"
-                  className="rounded-r-none border-r-0"
-                  onClick={toggleMicrophone}
-                >
-                  {isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </Button>
-                <input
-                  type="text"
-                  placeholder="Type your message in Spanish..."
-                  className="flex-1 p-2 border rounded-none"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
-                      handleSubmit((e.target as HTMLInputElement).value);
-                      (e.target as HTMLInputElement).value = '';
-                    }
-                  }}
-                />
-                <Button 
-                  className="rounded-l-none"
-                  onClick={() => {
-                    const input = document.querySelector('input') as HTMLInputElement;
-                    if (input && input.value.trim()) {
-                      handleSubmit(input.value);
-                      input.value = '';
-                    }
-                  }}
-                >
-                  Send
-                </Button>
+              <div className="flex-1 h-10 bg-accent/10 rounded-full flex items-center px-4 text-sm text-muted-foreground">
+                {isRecording ? (
+                  <span className="animate-pulse">Listening... {recordedText}</span>
+                ) : (
+                  <span>Click the microphone to speak Spanish</span>
+                )}
               </div>
+              
+              <Button
+                variant="ghost"
+                className="text-xs flex items-center gap-1"
+                onClick={handleNewChat}
+              >
+                <X className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">New Chat</span>
+              </Button>
             </div>
           </div>
         </div>
