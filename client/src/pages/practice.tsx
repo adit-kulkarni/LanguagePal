@@ -128,7 +128,7 @@ export default function Practice() {
     
     // Generate speech using OpenAI API
     openAIAudioService.textToSpeech(text, voice)
-      .then(audioUrl => {
+      .then((audioUrl: string) => {
         // Create audio element if it doesn't exist
         if (!audioRef.current) {
           audioRef.current = new Audio();

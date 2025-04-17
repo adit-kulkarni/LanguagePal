@@ -2,7 +2,9 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
-// Simple service worker unregistration for development without auto-refresh
+// Disable service worker completely for now to prevent errors
+// Commented out to fix issues in Replit environment
+/*
 if (navigator.serviceWorker) {
   console.log("Checking for service workers...");
   
@@ -21,5 +23,6 @@ if (navigator.serviceWorker) {
     }
   });
 }
+*/
 
 createRoot(document.getElementById("root")!).render(<App />);
