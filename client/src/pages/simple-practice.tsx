@@ -8,7 +8,7 @@ const SimplePractice: React.FC = () => {
   const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
   const [message, setMessage] = React.useState("¡Hola! I'm Profesora Ana. Let's practice Spanish!");
   
-  // Simple function to simulate speaking animation
+  // Function to speak text with animation
   const handleSpeakClick = () => {
     if (isSpeaking) return;
     
@@ -19,19 +19,46 @@ const SimplePractice: React.FC = () => {
     const animationInterval = setInterval(() => {
       setSpeakingIntensity(prev => {
         if (prev <= 0.1) {
-          clearInterval(animationInterval);
           return 0;
         }
-        return prev - 0.1;
+        return Math.max(0, prev - 0.1);
       });
     }, 100);
     
-    // Stop speaking after 3 seconds
-    setTimeout(() => {
+    // Use browser's built-in speech synthesis
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.lang = 'es-ES'; // Spanish
+    utterance.rate = 0.9;     // Slightly slower for better comprehension
+    
+    // Stop animation and reset when speech ends
+    utterance.onend = () => {
       setIsSpeaking(false);
       setSpeakingIntensity(0);
       clearInterval(animationInterval);
-    }, 3000);
+      console.log("Speech ended");
+    };
+    
+    // Error handling
+    utterance.onerror = (event) => {
+      console.error("Speech synthesis error:", event);
+      setIsSpeaking(false);
+      setSpeakingIntensity(0);
+      clearInterval(animationInterval);
+    };
+    
+    // Start speaking
+    window.speechSynthesis.speak(utterance);
+    
+    // Fallback if speech synthesis doesn't trigger onend
+    const maxSpeakingTime = 10000; // 10 seconds max
+    setTimeout(() => {
+      if (isSpeaking) {
+        setIsSpeaking(false);
+        setSpeakingIntensity(0);
+        clearInterval(animationInterval);
+        console.log("Speech timeout - forced end");
+      }
+    }, maxSpeakingTime);
   };
   
   return (
