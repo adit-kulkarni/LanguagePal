@@ -78,7 +78,8 @@ export default function StablePractice() {
     const estimatedDuration = words.length * averageWordDuration;
     const wordDuration = estimatedDuration / words.length;
     
-    // Animation interval for avatar
+    // Animation interval for avatar (runs immediately)
+    setSpeakingIntensity(0.8);
     const animationInterval = setInterval(() => {
       setSpeakingIntensity(prev => {
         // Random fluctuation in intensity for more natural appearance
@@ -87,16 +88,22 @@ export default function StablePractice() {
       });
     }, 150);
     
-    // Word display interval
+    // Set initial word immediately
+    setCurrentWord(words[0] || "");
+    let startTime = Date.now();
+    
+    // Word display interval - more accurately timed to audio
     const wordInterval = setInterval(() => {
-      if (wordIndex < words.length) {
-        const word = words[wordIndex];
-        setCurrentWord(word);
-        wordIndex++;
-      } else {
+      const elapsedTime = Date.now() - startTime;
+      const expectedWordIndex = Math.floor(elapsedTime / wordDuration);
+      
+      if (expectedWordIndex < words.length && expectedWordIndex !== wordIndex) {
+        wordIndex = expectedWordIndex;
+        setCurrentWord(words[wordIndex]);
+      } else if (expectedWordIndex >= words.length) {
         clearInterval(wordInterval);
       }
-    }, wordDuration);
+    }, 50); // Update more frequently for smoother word transitions
     
     // Handle speech cleanup
     const cleanupSpeech = () => {
@@ -125,9 +132,28 @@ export default function StablePractice() {
           audioRef.current = new Audio();
         }
         
+        // Start a timeout for loading indication
+        const loadingTimeout = setTimeout(() => {
+          toast({
+            title: "Loading teacher's voice",
+            description: "This might take a moment...",
+          });
+        }, 800); // Show loading message if it takes more than 800ms
+        
         // Get audio URL from OpenAI service
         const audioUrl = await openAIAudioService.textToSpeech(text, 'nova');
+        
+        // Clear loading timeout
+        clearTimeout(loadingTimeout);
+        
+        // Set source and prepare audio
         audioRef.current.src = audioUrl;
+        audioRef.current.oncanplaythrough = () => {
+          // Reset timer for word display to sync with actual audio start
+          startTime = Date.now();
+          wordIndex = 0;
+          setCurrentWord(words[0] || "");
+        };
         
         // Set up event handlers
         audioRef.current.onended = () => {
@@ -154,7 +180,18 @@ export default function StablePractice() {
         };
         
         // Start playback
-        audioRef.current.play();
+        try {
+          await audioRef.current.play();
+        } catch (playError) {
+          console.error("Error playing audio:", playError);
+          cleanupSpeech();
+          
+          // Fallback to browser speech
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'es-ES';
+          utterance.rate = 0.9;
+          window.speechSynthesis.speak(utterance);
+        }
       } catch (error) {
         console.error("Error with OpenAI TTS:", error);
         cleanupSpeech();
@@ -213,24 +250,42 @@ export default function StablePractice() {
     
     try {
       // Configure speech service
-      speechService.setMode(FEATURE_FLAGS.ENABLE_OPENAI_AUDIO ? 'openai' : 'browser');
-      speechService.configureSilenceDetection(true, 2000); // Stop after 2 seconds of silence
+      // Force OpenAI mode when available for better accuracy
+      const useOpenAI = FEATURE_FLAGS.ENABLE_OPENAI_AUDIO;
+      const mode = useOpenAI ? 'openai' : 'browser';
+      speechService.setMode(mode);
+      
+      // More generous silence detection with OpenAI (it processes after stopping)
+      const silenceDuration = useOpenAI ? 2500 : 2000;
+      speechService.configureSilenceDetection(true, silenceDuration);
       
       // Start recording
       speechService.start((transcript, isFinal) => {
-        console.log(`Transcript: ${transcript}, isFinal: ${isFinal}`);
-        setRecordedText(transcript);
+        console.log(`[${mode}] Transcript: ${transcript}, isFinal: ${isFinal}`);
         
-        // Submit when we have a final result
+        // Show intermediate results
+        if (transcript && transcript !== recordedText) {
+          setRecordedText(transcript);
+        }
+        
+        // Only submit when we have a final result that's meaningful
         if (isFinal && transcript.trim()) {
-          handleSubmit(transcript);
-          stopRecording();
+          console.log('Final transcript received, submitting:', transcript);
+          
+          // Briefly highlight the detected text
+          setRecordedText(transcript);
+          
+          // Slight delay before submission to show the final text
+          setTimeout(() => {
+            handleSubmit(transcript);
+            stopRecording();
+          }, 300);
         }
       });
       
       // Show toast for speech mode
       toast({
-        title: FEATURE_FLAGS.ENABLE_OPENAI_AUDIO ? "Using OpenAI speech recognition" : "Using browser speech recognition",
+        title: useOpenAI ? "Using OpenAI speech recognition" : "Using browser speech recognition",
         description: "Speak clearly in Spanish",
       });
     } catch (error) {
