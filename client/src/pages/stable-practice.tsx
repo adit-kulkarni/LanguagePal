@@ -82,10 +82,13 @@ export default function StablePractice() {
     setActiveMessage(messageId);
     setActiveTeacherMessage(text);
     
+    // Always open the video call interface when speaking
+    setIsVideoCallOpen(true);
+    
     // Set the text in the speech hook and trigger speaking
     speech.setText(text);
     speech.speak();
-  }, [isSpeaking, isLoadingAudio, speech, setActiveMessage, setActiveTeacherMessage]);
+  }, [isSpeaking, isLoadingAudio, speech, setActiveMessage, setActiveTeacherMessage, setIsVideoCallOpen]);
   
   // Auto-play welcome message on mount
   React.useEffect(() => {
@@ -96,7 +99,12 @@ export default function StablePractice() {
       setTimeout(() => {
         const welcomeMsg = messages[0];
         console.log("Auto-playing welcome message");
-        speak(welcomeMsg.content, welcomeMsg.id);
+        // Force video call to open before speaking
+        setIsVideoCallOpen(true);
+        console.log("Opening video call interface");
+        setTimeout(() => {
+          speak(welcomeMsg.content, welcomeMsg.id);
+        }, 300);
       }, 500); // Add a short delay to ensure component is fully mounted
     }
   }, [messages, speak]);
