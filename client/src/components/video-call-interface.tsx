@@ -2,12 +2,25 @@ import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
-import { Mic, MicOff, Video, VideoOff, X, Clock } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, X, Clock, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { speechService } from "@/lib/speech";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface VideoCallInterfaceProps {
   open: boolean;
@@ -37,8 +50,17 @@ export function VideoCallInterface({
   const [responseDelay, setResponseDelay] = React.useState(2); // Default 2 second delay
   const [recordedText, setRecordedText] = React.useState("");
   const [isDelayActive, setIsDelayActive] = React.useState(false);
+  const [recognitionMode, setRecognitionMode] = React.useState<'browser' | 'openai'>('openai');
+  const [showSettings, setShowSettings] = React.useState(false);
+  
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   const delayTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  // Set speech recognition mode
+  React.useEffect(() => {
+    speechService.setMode(recognitionMode);
+  }, [recognitionMode]);
 
   // Start recording when teacher stops speaking (after delay if set)
   React.useEffect(() => {
@@ -219,6 +241,56 @@ export function VideoCallInterface({
                 >
                   {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
                 </Button>
+                
+                <Popover open={showSettings} onOpenChange={setShowSettings}>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 rounded-full"
+                    >
+                      <Settings className="h-5 w-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium leading-none">Speech Recognition</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Configure speech recognition settings
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="grid grid-cols-3 items-center gap-4">
+                          <label htmlFor="recognition-mode" className="text-sm">
+                            Recognition Mode
+                          </label>
+                          <Select 
+                            value={recognitionMode} 
+                            onValueChange={(value: 'browser' | 'openai') => {
+                              setRecognitionMode(value);
+                              toast({
+                                title: `Using ${value === 'openai' ? 'OpenAI Whisper' : 'Browser'} recognition`,
+                                description: value === 'openai' 
+                                  ? "Higher accuracy with punctuation support"
+                                  : "Real-time feedback but less accurate",
+                              });
+                            }}
+                            
+                          >
+                            <SelectTrigger className="col-span-2 h-8">
+                              <SelectValue placeholder="Select mode" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="openai">OpenAI Whisper (Accurate)</SelectItem>
+                              <SelectItem value="browser">Browser API (Real-time)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             
