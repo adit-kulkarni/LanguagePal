@@ -70,6 +70,8 @@ export default function Practice() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [messageIdCounter, setMessageIdCounter] = React.useState(1);
+  const [isVideoCallOpen, setIsVideoCallOpen] = React.useState(false);
+  const [activeTeacherMessage, setActiveTeacherMessage] = React.useState<string>("");
   const isMobile = useIsMobile();
 
   const speak = React.useCallback((text: string, messageId?: number) => {
@@ -82,6 +84,12 @@ export default function Practice() {
     } else {
       setActiveMessage(messages.length > 0 ? messages[messages.length - 1].id || null : null);
     }
+
+    // Save the active teacher message text
+    setActiveTeacherMessage(text);
+    
+    // Open the video call interface
+    setIsVideoCallOpen(true);
 
     // Cancel any previous speech
     window.speechSynthesis.cancel();
@@ -588,30 +596,16 @@ export default function Practice() {
               </CardContent>
             </Card>
 
-            {/* Word-by-word subtitle with avatar popup */}
-            {isSpeaking && (
-              <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-                {/* Semi-transparent overlay */}
-                <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]"></div>
-                
-                {/* Popup content */}
-                <div className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-xl p-6 flex flex-col items-center max-w-[300px] animate-in fade-in zoom-in-95 duration-300 relative" style={{boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'}}>
-                  <TeacherAvatar
-                    className="w-24 h-24 mb-4"
-                    speaking={isSpeaking}
-                    intensity={speakingIntensity}
-                    hideText={true}
-                  />
-                  {currentWord && (
-                    <div className="min-h-[60px] flex items-center">
-                      <Badge variant="secondary" className="text-xl px-6 py-3 bg-primary/90 text-white shadow-md">
-                        {currentWord}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Video Call Interface */}
+            <VideoCallInterface 
+              open={isVideoCallOpen}
+              onOpenChange={setIsVideoCallOpen}
+              teacherMessage={activeTeacherMessage}
+              onUserResponse={handleSubmit}
+              isSpeaking={isSpeaking}
+              currentWord={currentWord}
+              speakingIntensity={speakingIntensity}
+            />
             
             <ScrollArea className="flex-1 px-2 md:px-6 py-1 md:py-2">
               <div className="space-y-2 max-w-3xl mx-auto">
@@ -645,14 +639,27 @@ export default function Practice() {
                               {message.content}
                             </div>
                             {message.type === "teacher" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => speak(message.content, message.id)}
-                                className="flex-shrink-0 h-7 w-7 ml-1 p-0"
-                              >
-                                <Volume2 className="h-3.5 w-3.5" />
-                              </Button>
+                              <div className="flex items-center">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => speak(message.content, message.id)}
+                                  className="flex-shrink-0 h-7 w-7 ml-1 p-0"
+                                >
+                                  <Volume2 className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setActiveTeacherMessage(message.content);
+                                    setIsVideoCallOpen(true);
+                                  }}
+                                  className="flex-shrink-0 h-7 w-7 p-0"
+                                >
+                                  <Video className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
                             )}
                           </div>
 
