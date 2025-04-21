@@ -52,11 +52,23 @@ export default function StablePractice() {
     preload: true,
     onStart: () => {
       console.log("Speech started");
+      // Opening video call when speech starts
+      setIsVideoCallOpen(true);
     },
     onEnd: () => {
       console.log("Speech ended");
+      // Auto-activate microphone after speech ends
+      if (FEATURE_FLAGS.ENABLE_AUTO_SPEECH) {
+        console.log("Teacher has finished speaking, preparing for student response");
+        console.log("Auto-activating microphone in 500ms");
+        // Small delay to allow the UI to update
+        setTimeout(() => {
+          startRecording();
+        }, 500);
+      }
     },
     onWord: (word) => {
+      console.log("Current word:", word);
       setCurrentWord(word);
     },
     onSpeakingIntensity: (intensity) => {
