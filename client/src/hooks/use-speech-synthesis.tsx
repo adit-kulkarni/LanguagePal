@@ -127,9 +127,18 @@ export function useSpeechSynthesis({
       audioRef.current = new Audio(audioUrl);
       const audio = audioRef.current;
       
+      console.log("Created new Audio element with src:", audioUrl);
+
+      // CRITICAL: Force audio to load before events are attached
+      audio.load();
+      
       // Set up audio events
       audio.onloadedmetadata = () => {
         console.log(`Audio loaded, duration: ${audio.duration}s`);
+      };
+      
+      audio.oncanplaythrough = () => {
+        console.log("Audio can play through without buffering");
       };
       
       audio.onplay = () => {
@@ -272,7 +281,16 @@ export function useSpeechSynthesis({
         };
         
         // Add an explicit canplaythrough event to ensure the audio has loaded
-        audio.oncanplaythrough = attemptPlayback;
+        // IMPORTANT: Don't overwrite the original oncanplaythrough handler
+        const originalCanPlayHandler = audio.oncanplaythrough;
+        audio.oncanplaythrough = (e) => {
+          // Call the original handler if it exists
+          if (originalCanPlayHandler) {
+            originalCanPlayHandler.call(audio, e);
+          }
+          // Then attempt playback
+          attemptPlayback();
+        };
         
         // Also add timeout in case canplaythrough never fires
         setTimeout(() => {

@@ -93,11 +93,15 @@ export default function StablePractice() {
       return;
     }
     
-    console.log(`Speaking message ID ${messageId}: ${text}`);
+    console.log(`Speaking message ID ${messageId}: "${text}" (${text.length} chars)`);
+    
+    // Reset current state to ensure clean start
+    speech.stop();
+    setCurrentWord("");
     
     // Update state
     setActiveMessage(messageId);
-    setActiveTeacherMessage(text);
+    setActiveTeacherMessage(text); // Set this first
     
     // Make sure video call is open and visible before attempting to speak
     if (!isVideoCallOpen) {
@@ -108,11 +112,27 @@ export default function StablePractice() {
         console.log("Video call interface opened, now speaking");
         // Set the text in the speech hook and trigger speaking
         speech.setText(text);
+        
+        // Dispatch event to ensure all components know about the new message
+        const event = new CustomEvent('play-teacher-audio', {
+          detail: { message: text }
+        });
+        window.dispatchEvent(event);
+        
+        // Then try to speak using the hook
         speech.speak();
       }, 800);
     } else {
       // Interface is already open, speak directly
       speech.setText(text);
+      
+      // Dispatch event to ensure all components know about the new message
+      const event = new CustomEvent('play-teacher-audio', {
+        detail: { message: text }
+      });
+      window.dispatchEvent(event);
+      
+      // Then try to speak using the hook
       speech.speak();
     }
   }, [isSpeaking, isLoadingAudio, speech, setActiveMessage, setActiveTeacherMessage, isVideoCallOpen, setIsVideoCallOpen]);

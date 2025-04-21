@@ -75,14 +75,17 @@ export function AudioPlayer({
   
   // Load and play audio when text changes
   useEffect(() => {
-    if (!text) return;
+    if (!text) {
+      console.log("[AudioPlayer] No text provided to AudioPlayer, skipping audio generation");
+      return;
+    }
     
     const loadAudio = async () => {
       try {
         setIsLoading(true);
         setError(null);
         
-        console.log("[AudioPlayer] Fetching audio for:", text.substring(0, 30) + '...');
+        console.log("[AudioPlayer] Fetching audio for text:", text.substring(0, 30) + '...', "length:", text.length);
         
         // Direct API call to get audio
         const response = await fetch('/api/speech/tts', {

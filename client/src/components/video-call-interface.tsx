@@ -322,19 +322,19 @@ export function VideoCallInterface({
                 </div>
               ) : null}
               
-              {/* Add hidden audio player for both auto-play and manual triggers */}
+              {/* Always include an AudioPlayer even when speaking */}
               {teacherMessage && (
-                <div className="hidden">
+                <div className={isSpeaking ? "hidden" : ""}>
                   <AudioPlayer 
                     text={teacherMessage}
                     voice="nova"
                     autoPlay={true}
                     listenToEvents={true}
                     onStart={() => {
-                      console.log("Teacher audio started playing from hidden player");
+                      console.log("Teacher audio started playing from main player");
                     }}
                     onEnd={() => {
-                      console.log("Teacher audio finished playing from hidden player");
+                      console.log("Teacher audio finished playing from main player");
                     }}
                   />
                 </div>
