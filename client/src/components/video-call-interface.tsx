@@ -262,8 +262,9 @@ export function VideoCallInterface({
                     <AudioPlayer 
                       text={teacherMessage}
                       voice="nova"
-                      onStart={() => console.log("Teacher audio started playing")}
-                      onEnd={() => console.log("Teacher audio finished playing")}
+                      autoPlay={true}
+                      onStart={() => console.log("Teacher audio started playing from visible player")}
+                      onEnd={() => console.log("Teacher audio finished playing from visible player")}
                     />
                   </div>
                 </div>
@@ -275,10 +276,14 @@ export function VideoCallInterface({
                   <AudioPlayer 
                     text={teacherMessage}
                     voice="nova"
-                    autoPlay={isSpeaking}
+                    autoPlay={true}
                     listenToEvents={true}
-                    onStart={() => console.log("Teacher audio started playing")}
-                    onEnd={() => console.log("Teacher audio finished playing")}
+                    onStart={() => {
+                      console.log("Teacher audio started playing from hidden player");
+                    }}
+                    onEnd={() => {
+                      console.log("Teacher audio finished playing from hidden player");
+                    }}
                   />
                 </div>
               )}
