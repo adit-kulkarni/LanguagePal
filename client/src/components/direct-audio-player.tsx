@@ -21,6 +21,9 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
     const [error, setError] = useState<string | null>(null);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     
+    // Track all blob URLs created for cleanup on unmount
+    const blobUrlsRef = useRef<string[]>([]);
+    
     // Create event listener for custom play event
     useEffect(() => {
       const handleError = (e: Event) => {
@@ -58,10 +61,17 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
       let isMounted = true;
       setError(null);
       
+      // Store the fetch status to avoid duplicate requests
+      let isLoading = false;
+      
       const loadAudio = async () => {
-        if (!text) return;
+        if (!text || isLoading) return;
+        
+        isLoading = true;
         
         try {
+          console.log('[DirectAudioPlayer] Loading audio for text:', text.substring(0, 20) + '...');
+          
           const response = await fetch('/api/speech/tts', {
             method: 'POST',
             headers: {
@@ -85,35 +95,55 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
           const url = URL.createObjectURL(blob);
           console.log('[DirectAudioPlayer] Created blob URL:', url);
           
+          // Store this URL in our ref for later cleanup
+          blobUrlsRef.current.push(url);
+          
           if (isMounted) {
             setAudioUrl(url);
           }
+          
+          isLoading = false;
         } catch (err) {
           console.error('[DirectAudioPlayer] Error loading audio:', err);
           if (isMounted) {
             setError('Failed to load audio');
           }
+          isLoading = false;
         }
       };
       
       loadAudio();
       
       return () => {
+        // Only mark as unmounted, don't clean up resources yet
         isMounted = false;
-        // Cleanup any previous audio URL to prevent memory leaks
-        if (audioUrl) {
-          URL.revokeObjectURL(audioUrl);
-        }
+        
+        // Don't revoke URLs during normal operation
+        // We'll handle this in a separate effect to prevent
+        // audio cutting off during playback
       };
     }, [text, voice]);
+    
+    // Track if we're currently playing to prevent audio element recreation
+    const isPlayingRef = useRef(false);
     
     // Set up the audio element once the URL is available
     useEffect(() => {
       if (!audioUrl) return;
       
+      // Skip recreating audio element if we're currently playing
+      // This is crucial to prevent interruptions during playback
+      if (isPlayingRef.current && audioRef.current) {
+        console.log('[DirectAudioPlayer] Skipping audio element recreation during playback');
+        return;
+      }
+      
       // Create new audio element with robust error handling
       const audio = new Audio(audioUrl);
       audio.preload = 'auto'; // Force preloading for better playback
+      
+      // Set crossOrigin to allow CORS audio to be manipulated by audio APIs if needed
+      audio.crossOrigin = 'anonymous';
       
       // Add debugging logs
       console.log('[DirectAudioPlayer] Setting up new audio element for:', audioUrl);
@@ -124,20 +154,23 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
       // Event handlers with improved error logging
       const handleEnded = () => {
         console.log('[DirectAudioPlayer] Audio playback ended naturally');
+        isPlayingRef.current = false;
         setIsPlaying(false);
         if (onEnd) onEnd();
       };
       
       const handlePlay = () => {
         console.log('[DirectAudioPlayer] Audio playback started');
+        isPlayingRef.current = true;
         setIsPlaying(true);
         if (onStart) onStart();
       };
       
       const handlePause = () => {
         console.log('[DirectAudioPlayer] Audio playback paused');
-        // Only set as not playing if we're at the end of the track
+        // Only mark as not playing if we're at the end of the track
         if (audio.currentTime >= audio.duration - 0.1) {
+          isPlayingRef.current = false;
           setIsPlaying(false);
         }
       };
@@ -152,6 +185,7 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
       
       const handleError = (e: Event) => {
         console.error('[DirectAudioPlayer] Audio element error event:', e);
+        isPlayingRef.current = false;
         setError('Audio playback error');
         setIsPlaying(false);
         if (onEnd) onEnd();
@@ -161,8 +195,8 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
         // Improved word tracking with more frequent updates
         if (!text) return;
         
-        // Debug time progression
-        if (audio.currentTime % 1 < 0.1) { // Log every ~1 second
+        // Debug time progression occasionally (not too verbose)
+        if (audio.currentTime % 1 < 0.1) { // Log approximately every second
           console.log(`[DirectAudioPlayer] Time update: ${audio.currentTime.toFixed(1)}/${audio.duration.toFixed(1)}`);
         }
         
@@ -212,23 +246,51 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
         }, 100);
       }
       
-      // Clean up function
+      // Clean up function - only executes when we're not playing
+      // or when component is completely unmounted
       return () => {
-        console.log('[DirectAudioPlayer] Cleaning up audio element');
-        audio.removeEventListener('ended', handleEnded);
-        audio.removeEventListener('play', handlePlay);
-        audio.removeEventListener('pause', handlePause);
-        audio.removeEventListener('canplay', handleCanPlay);
-        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        audio.removeEventListener('error', handleError);
-        audio.removeEventListener('timeupdate', handleTimeUpdate);
-        
-        // Reset the audio element
-        audio.pause();
-        audio.src = '';
-        audioRef.current = null;
+        // Only clean up if we're not playing anymore
+        if (!isPlayingRef.current) {
+          console.log('[DirectAudioPlayer] Safe cleanup of audio element (not playing)');
+          audio.removeEventListener('ended', handleEnded);
+          audio.removeEventListener('play', handlePlay);
+          audio.removeEventListener('pause', handlePause);
+          audio.removeEventListener('canplay', handleCanPlay);
+          audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+          audio.removeEventListener('error', handleError);
+          audio.removeEventListener('timeupdate', handleTimeUpdate);
+          
+          // Reset the audio element
+          audio.pause();
+          audio.src = '';
+          audioRef.current = null;
+        } else {
+          console.log('[DirectAudioPlayer] Skipping cleanup as audio is still playing');
+        }
       };
     }, [audioUrl, onEnd, onStart, autoPlay, text, onWordChange]);
+    
+    // Cleanup effect that runs only when component unmounts completely
+    useEffect(() => {
+      // This only runs when the component is unmounted completely
+      return () => {
+        console.log('[DirectAudioPlayer] Component unmounting, cleaning up ALL resources');
+        
+        // Clean up any existing audio element
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = '';
+          audioRef.current = null;
+        }
+        
+        // Clean up all blob URLs we've created
+        blobUrlsRef.current.forEach(url => {
+          console.log('[DirectAudioPlayer] Revoking blob URL on unmount:', url);
+          URL.revokeObjectURL(url);
+        });
+        blobUrlsRef.current = [];
+      };
+    }, []); // Empty dependency array means this only runs on mount/unmount
     
     // Expose play method via ref with improved reliability
     React.useImperativeHandle(ref, () => ({
@@ -237,6 +299,9 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
           console.error('[DirectAudioPlayer] Cannot play - audio element not available');
           return;
         }
+        
+        // Set our playback flag to prevent cleanup during playback
+        isPlayingRef.current = true;
         
         // Reset to beginning if needed
         if (audioRef.current.currentTime > 0) {
@@ -257,6 +322,7 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
             audioRef.current.play().catch(err => {
               console.error('[DirectAudioPlayer] Play error:', err);
               setError('Failed to play audio');
+              isPlayingRef.current = false;
               if (onEnd) onEnd();
             });
           }
