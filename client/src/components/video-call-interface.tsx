@@ -33,18 +33,22 @@ interface VideoCallInterfaceProps {
   isSpeaking: boolean;
   currentWord: string;
   speakingIntensity: number;
+  userRecordedText?: string; // Live transcription of user speech
+  isRecording?: boolean; // Whether the user is currently recording
 }
 
 export function VideoCallInterface({
   open,
   onOpenChange,
   teacherAvatarUrl = "https://api.dicebear.com/7.x/personas/svg?seed=teacher&backgroundColor=transparent",
-  userAvatarUrl = "https://api.dicebear.com/7.x/personas/svg?seed=user&backgroundColor=transparent",
+  userAvatarUrl = "https://api.dicebear.com/7.x/personas/svg?seed=user&backgroundColor=transparent", 
   teacherMessage,
   onUserResponse,
   isSpeaking,
   currentWord,
-  speakingIntensity
+  speakingIntensity,
+  userRecordedText = "",
+  isRecording: externalIsRecording = false
 }: VideoCallInterfaceProps) {
   const [isRecording, setIsRecording] = React.useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = React.useState(false);
@@ -246,10 +250,18 @@ export function VideoCallInterface({
                   <Badge variant="outline" className="text-base px-4 py-2 max-w-[200px] md:max-w-[300px] animate-pulse">
                     Procesando audio...
                   </Badge>
-                ) : isRecording ? (
-                  <Badge variant="outline" className="text-base px-4 py-2 max-w-[200px] md:max-w-[300px] text-primary animate-pulse">
-                    Escuchando...
-                  </Badge>
+                ) : isRecording || externalIsRecording ? (
+                  <div className="flex flex-col gap-1">
+                    <Badge variant="outline" className="text-base px-4 py-2 max-w-[200px] md:max-w-[300px] text-primary animate-pulse">
+                      Escuchando...
+                    </Badge>
+                    {/* Show live transcription when available */}
+                    {(userRecordedText || recordedText) && (
+                      <Badge variant="secondary" className="text-sm px-4 py-1 max-w-[200px] md:max-w-[300px]">
+                        {userRecordedText || recordedText}
+                      </Badge>
+                    )}
+                  </div>
                 ) : recordedText ? (
                   <Badge variant="outline" className="text-base px-4 py-2 max-w-[200px] md:max-w-[300px] truncate">
                     {recordedText}

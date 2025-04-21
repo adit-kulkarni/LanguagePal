@@ -99,13 +99,13 @@ export default function StablePractice() {
       setTimeout(() => {
         const welcomeMsg = messages[0];
         console.log("Auto-playing welcome message");
-        // Force video call to open before speaking
+        // Force video call to open before speaking, but with minimal delay
         setIsVideoCallOpen(true);
         console.log("Opening video call interface");
         setTimeout(() => {
           speak(welcomeMsg.content, welcomeMsg.id);
-        }, 300);
-      }, 500); // Add a short delay to ensure component is fully mounted
+        }, 100); // Reduced delay
+      }, 300); // Reduced delay to ensure component is fully mounted
     }
   }, [messages, speak]);
   
@@ -116,6 +116,9 @@ export default function StablePractice() {
     setIsRecording(true);
     setRecordedText("");
     
+    // Make sure video call interface is open to show live transcription
+    setIsVideoCallOpen(true);
+    
     try {
       // Configure speech service
       // Force OpenAI mode when available for better accuracy
@@ -123,38 +126,48 @@ export default function StablePractice() {
       const mode = useOpenAI ? 'openai' : 'browser';
       speechService.setMode(mode);
       
-      // More generous silence detection with OpenAI (it processes after stopping)
-      const silenceDuration = useOpenAI ? 2500 : 2000;
+      // More sensitive silence detection to stop earlier (1.5 seconds of silence)
+      const silenceDuration = useOpenAI ? 1500 : 1500;
       speechService.configureSilenceDetection(true, silenceDuration);
       
       // Start recording
       speechService.start((transcript, isFinal) => {
         console.log(`[${mode}] Transcript: ${transcript}, isFinal: ${isFinal}`);
         
-        // Show intermediate results
-        if (transcript && transcript !== recordedText) {
+        // Always show intermediate results immediately for better feedback
+        if (transcript) {
           setRecordedText(transcript);
+          
+          // If using browser mode (which provides word-by-word updates),
+          // also update the current word visualization
+          if (mode === 'browser') {
+            // Extract the last word from the transcript
+            const words = transcript.split(/\s+/);
+            const lastWord = words[words.length - 1];
+            if (lastWord && lastWord.length > 0) {
+              setCurrentWord(lastWord);
+            }
+          }
         }
         
         // Only submit when we have a final result that's meaningful
         if (isFinal && transcript.trim()) {
           console.log('Final transcript received, submitting:', transcript);
           
-          // Briefly highlight the detected text
-          setRecordedText(transcript);
-          
           // Slight delay before submission to show the final text
           setTimeout(() => {
             handleSubmit(transcript);
             stopRecording();
+            // Clear current word display
+            setCurrentWord("");
           }, 300);
         }
       });
       
-      // Show toast for speech mode
+      // Show toast for speech mode with improved description
       toast({
         title: useOpenAI ? "Using OpenAI speech recognition" : "Using browser speech recognition",
-        description: "Speak clearly in Spanish",
+        description: `Speak clearly in Spanish. ${useOpenAI ? 'Processing will happen after you pause.' : 'Words appear as you speak.'}`,
       });
     } catch (error) {
       console.error("Error starting speech recognition:", error);
@@ -310,6 +323,8 @@ export default function StablePractice() {
             isSpeaking={isSpeaking}
             currentWord={currentWord}
             speakingIntensity={speakingIntensity}
+            userRecordedText={recordedText}
+            isRecording={isRecording}
           />
           
           <ScrollArea className="flex-1 px-2 md:px-6 py-1 md:py-2">
