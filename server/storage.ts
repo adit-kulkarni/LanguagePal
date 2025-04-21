@@ -1,19 +1,22 @@
-import { users, messages, conversationSessions, type User, type InsertUser, type Message, type InsertMessage, type ConversationSession, type InsertConversationSession } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
-import session from "express-session";
-import connectPg from "connect-pg-simple";
-
-const PostgresSessionStore = connectPg(session);
+import * as session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { 
+  users, conversationSessions, messages,
+  type User, type InsertUser,
+  type ConversationSession, type InsertConversationSession,
+  type Message, type InsertMessage
+} from "../shared/schema";
 
 export interface IStorage {
   // User management
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  getUserByGoogleId(googleId: string): Promise<User | undefined>;
+  getUserByGoogleId?(googleId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUserSettings(id: number, settings: User["settings"]): Promise<User>;
-  updateUserProgress(id: number, progress: User["progress"]): Promise<User>;
+  updateUserSettings?(id: number, settings: User["settings"]): Promise<User>;
+  updateUserProgress?(id: number, progress: User["progress"]): Promise<User>;
 
   // Session management
   createSession(session: InsertConversationSession): Promise<ConversationSession>;
@@ -35,7 +38,8 @@ export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({
+    const PgStore = connectPgSimple(session);
+    this.sessionStore = new PgStore({
       conObject: {
         connectionString: process.env.DATABASE_URL,
       },
@@ -45,17 +49,17 @@ export class DatabaseStorage implements IStorage {
 
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
+    return user || undefined;
   }
 
   async getUserByGoogleId(googleId: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
-    return user;
+    return user || undefined;
   }
 
   async createUser(user: InsertUser): Promise<User> {
@@ -64,98 +68,79 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserSettings(id: number, settings: User["settings"]): Promise<User> {
-    const [updatedUser] = await db
-      .update(users)
+    const [updatedUser] = await db.update(users)
       .set({ settings })
       .where(eq(users.id, id))
       .returning();
-
-    if (!updatedUser) throw new Error("User not found");
     return updatedUser;
   }
 
   async updateUserProgress(id: number, progress: User["progress"]): Promise<User> {
-    const [updatedUser] = await db
-      .update(users)
+    const [updatedUser] = await db.update(users)
       .set({ progress })
       .where(eq(users.id, id))
       .returning();
-
-    if (!updatedUser) throw new Error("User not found");
     return updatedUser;
   }
 
   async createSession(session: InsertConversationSession): Promise<ConversationSession> {
-    const [newSession] = await db
-      .insert(conversationSessions)
-      .values(session)
-      .returning();
+    const [newSession] = await db.insert(conversationSessions).values(session).returning();
     return newSession;
   }
 
   async getSession(id: number): Promise<ConversationSession | undefined> {
-    const [session] = await db
-      .select()
-      .from(conversationSessions)
-      .where(eq(conversationSessions.id, id));
-    return session;
+    const [session] = await db.select().from(conversationSessions).where(eq(conversationSessions.id, id));
+    return session || undefined;
   }
 
   async getUserSessions(userId: number): Promise<ConversationSession[]> {
-    return db
-      .select()
+    return await db.select()
       .from(conversationSessions)
       .where(eq(conversationSessions.userId, userId))
-      .orderBy(desc(conversationSessions.lastMessageAt));
+      .orderBy(conversationSessions.lastMessageAt);
   }
 
   async deleteSession(id: number): Promise<void> {
-    // Delete all messages first due to foreign key constraint
+    // First delete all messages in the session
     await db.delete(messages).where(eq(messages.sessionId, id));
     // Then delete the session
     await db.delete(conversationSessions).where(eq(conversationSessions.id, id));
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {
-    const [newMessage] = await db
-      .insert(messages)
-      .values(message)
-      .returning();
-
-    // Update the session's lastMessageAt timestamp
-    await db
-      .update(conversationSessions)
-      .set({ lastMessageAt: new Date() })
-      .where(eq(conversationSessions.id, message.sessionId));
-
+    const [newMessage] = await db.insert(messages).values(message).returning();
+    
+    // Update the lastMessageAt timestamp on the session
+    if (newMessage.sessionId) {
+      await db.update(conversationSessions)
+        .set({ lastMessageAt: new Date() })
+        .where(eq(conversationSessions.id, newMessage.sessionId));
+    }
+    
     return newMessage;
   }
 
   async getSessionMessages(sessionId: number): Promise<Message[]> {
-    return db
-      .select()
+    return await db.select()
       .from(messages)
       .where(eq(messages.sessionId, sessionId))
-      .orderBy(desc(messages.createdAt));
+      .orderBy(messages.createdAt);
   }
 
   async getRecentMessages(sessionId: number, limit: number = 5): Promise<Message[]> {
-    return db
-      .select()
+    // Get the most recent messages for a session
+    return await db.select()
       .from(messages)
       .where(eq(messages.sessionId, sessionId))
-      .orderBy(desc(messages.createdAt))
+      .orderBy(messages.createdAt)
       .limit(limit);
   }
-  
+
   async updateMessageCorrections(messageId: number, corrections: Message["corrections"]): Promise<Message> {
-    const [updatedMessage] = await db
-      .update(messages)
+    const [updatedMessage] = await db.update(messages)
       .set({ corrections })
       .where(eq(messages.id, messageId))
       .returning();
-      
-    if (!updatedMessage) throw new Error("Message not found");
     return updatedMessage;
   }
 }
