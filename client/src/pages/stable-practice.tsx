@@ -253,29 +253,69 @@ export default function StablePractice() {
   // Ref to ensure welcome message only plays once
   const hasPlayedWelcomeRef = React.useRef(false);
   
+  // Welcome message audio component - a simple player just for welcome message
+  const WelcomeAudio = React.useCallback(() => {
+    const welcomeMessage = messages.length > 0 && messages[0].type === "teacher" ? messages[0].content : null;
+    const [isPlayed, setIsPlayed] = React.useState(false);
+    const [isReady, setIsReady] = React.useState(false);
+    
+    // Handle direct play - this is a user-initiated play to work around autoplay restrictions
+    const handleManualPlay = React.useCallback(() => {
+      if (welcomeMessage && !isPlayed && messages[0]) {
+        console.log("Playing welcome message via manual trigger");
+        setIsPlayed(true);
+        speak(welcomeMessage, messages[0].id);
+      }
+    }, [welcomeMessage, isPlayed]);
+    
+    // Set up initial state
+    React.useEffect(() => {
+      if (welcomeMessage && !hasPlayedWelcomeRef.current) {
+        setIsReady(true);
+        console.log("Welcome message ready for playback:", welcomeMessage);
+        
+        // Open dialog
+        setIsVideoCallOpen(true);
+        
+        // Mark as attempted playback
+        hasPlayedWelcomeRef.current = true;
+        
+        // Try auto-play after a delay
+        setTimeout(() => {
+          console.log("Attempting welcome message autoplay");
+          handleManualPlay();
+        }, 1500);
+      }
+    }, [welcomeMessage, handleManualPlay]);
+    
+    if (!isReady || isPlayed) return null;
+    
+    return (
+      <div className="fixed bottom-4 right-4 z-50 bg-primary text-white p-4 rounded-lg shadow-lg animate-pulse">
+        <p className="mb-2">¡Haga clic para comenzar la conversación!</p>
+        <button 
+          onClick={handleManualPlay}
+          className="w-full py-2 px-4 bg-white text-primary font-semibold rounded hover:bg-gray-100 flex items-center justify-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          Reproducir audio
+        </button>
+      </div>
+    );
+  }, [messages, speak, setIsVideoCallOpen]);
+  
   // Auto-play welcome message on mount - only once when component first loads
   React.useEffect(() => {
     logFeatureState();
     
-    // Auto-play welcome message on load if it exists and hasn't been played yet
+    // Just open dialog on initial load
     if (!hasPlayedWelcomeRef.current && messages.length > 0 && messages[0].type === "teacher") {
-      console.log("Will play welcome message...");
-      hasPlayedWelcomeRef.current = true;
-      
-      // First open the dialog and ensure it's fully rendered
+      console.log("Opening dialog for welcome message");
       setIsVideoCallOpen(true);
-      
-      // Use a longer delay to ensure the dialog is fully mounted and stable
-      const timer = setTimeout(() => {
-        const welcomeMsg = messages[0];
-        console.log("Auto-playing welcome message now");
-        speak(welcomeMsg.content, welcomeMsg.id);
-      }, 1500); // Use a longer delay to ensure the dialog is fully rendered
-      
-      // Clean up the timer if component unmounts before it fires
-      return () => clearTimeout(timer);
     }
-  }, [messages, speak, setIsVideoCallOpen]); // Include all dependencies
+  }, [messages, setIsVideoCallOpen]);
   
   // Mock handle submit with no API calls
   const handleSubmit = (text: string) => {
@@ -337,6 +377,7 @@ export default function StablePractice() {
   
   return (
     <div className="h-screen overflow-hidden flex flex-col md:flex-row relative">
+      <WelcomeAudio />
       {/* Mobile header with menu button */}
       {isMobile && (
         <div className="h-14 border-b px-4 flex items-center justify-between sticky top-0 bg-background z-20">
