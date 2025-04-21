@@ -28,7 +28,7 @@ interface VideoCallInterfaceProps {
   onOpenChange: (open: boolean) => void;
   teacherAvatarUrl?: string;
   userAvatarUrl?: string;
-  teacherMessage: string;
+  teacherMessage: string | null;
   onUserResponse: (text: string) => void;
   isSpeaking: boolean;
   currentWord: string;
@@ -229,11 +229,11 @@ export function VideoCallInterface({
                 </div>
               )}
               
-              {!isSpeaking && teacherMessage && (
+              {!isSpeaking && teacherMessage ? (
                 <div className="text-center mt-4 max-w-md px-4">
                   <p className="text-lg">{teacherMessage}</p>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
           

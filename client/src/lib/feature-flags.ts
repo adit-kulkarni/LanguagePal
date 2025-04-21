@@ -9,7 +9,7 @@ export const FEATURE_FLAGS = {
   ENABLE_USER_SESSIONS: false,      // Enable user session management and history
   
   // User experience features
-  ENABLE_AUTO_SPEECH: false,        // Enable automatic speaking when messages are received
+  ENABLE_AUTO_SPEECH: true,         // Enable automatic microphone activation after teacher speaks
   ENABLE_CORRECTIONS: false,        // Enable corrections and feedback on user messages
   ENABLE_TRANSLATIONS: false,       // Enable translations of teacher messages
   

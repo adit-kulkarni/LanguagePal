@@ -39,21 +39,19 @@ export default function StablePractice() {
   const [isRecording, setIsRecording] = React.useState(false);
   const [recordedText, setRecordedText] = React.useState("");
   
-  // Active message state
+  // Currently active message for speech
   const [activeMessage, setActiveMessage] = React.useState<number | null>(null);
-  const [activeTeacherMessage, setActiveTeacherMessage] = React.useState("");
-  
-  // Word tracking state
+  const [activeTeacherMessage, setActiveTeacherMessage] = React.useState<string | null>(null);
   const [currentWord, setCurrentWord] = React.useState("");
   const [speakingIntensity, setSpeakingIntensity] = React.useState(0);
   
-  // Speech synthesis hook for improved audio
+  // Setup speech synthesis
   const speech = useSpeechSynthesis({
     voice: 'nova',
+    rate: 1,
     preload: true,
     onStart: () => {
       console.log("Speech started");
-      setIsVideoCallOpen(true);
     },
     onEnd: () => {
       console.log("Speech ended");
@@ -69,38 +67,6 @@ export default function StablePractice() {
   // Speech state references from the hook
   const isSpeaking = speech.isSpeaking;
   const isLoadingAudio = speech.isLoading;
-  
-  // Speech function
-  const speak = React.useCallback((text: string, messageId: number) => {
-    // Don't speak if already speaking
-    if (isSpeaking || isLoadingAudio) {
-      console.log("Already speaking or loading audio, not starting new speech");
-      return;
-    }
-    
-    console.log(`Speaking message ID ${messageId}: ${text}`);
-    
-    // Update state
-    setActiveMessage(messageId);
-    setActiveTeacherMessage(text);
-    
-    // Make sure video call is open and visible before attempting to speak
-    if (!isVideoCallOpen) {
-      setIsVideoCallOpen(true);
-      
-      // Wait for the dialog to be fully visible before speaking
-      setTimeout(() => {
-        console.log("Video call interface opened, now speaking");
-        // Set the text in the speech hook and trigger speaking
-        speech.setText(text);
-        speech.speak();
-      }, 800);
-    } else {
-      // Interface is already open, speak directly
-      speech.setText(text);
-      speech.speak();
-    }
-  }, [isSpeaking, isLoadingAudio, speech, setActiveMessage, setActiveTeacherMessage, isVideoCallOpen, setIsVideoCallOpen]);
   
   // Microphone recording functions
   const startRecording = () => {
@@ -189,6 +155,38 @@ export default function StablePractice() {
       startRecording();
     }
   };
+  
+  // Speech function
+  const speak = React.useCallback((text: string, messageId: number) => {
+    // Don't speak if already speaking
+    if (isSpeaking || isLoadingAudio) {
+      console.log("Already speaking or loading audio, not starting new speech");
+      return;
+    }
+    
+    console.log(`Speaking message ID ${messageId}: ${text}`);
+    
+    // Update state
+    setActiveMessage(messageId);
+    setActiveTeacherMessage(text);
+    
+    // Make sure video call is open and visible before attempting to speak
+    if (!isVideoCallOpen) {
+      setIsVideoCallOpen(true);
+      
+      // Wait for the dialog to be fully visible before speaking
+      setTimeout(() => {
+        console.log("Video call interface opened, now speaking");
+        // Set the text in the speech hook and trigger speaking
+        speech.setText(text);
+        speech.speak();
+      }, 800);
+    } else {
+      // Interface is already open, speak directly
+      speech.setText(text);
+      speech.speak();
+    }
+  }, [isSpeaking, isLoadingAudio, speech, setActiveMessage, setActiveTeacherMessage, isVideoCallOpen, setIsVideoCallOpen]);
   
   // Listen for when teacher stops speaking to auto-activate mic
   React.useEffect(() => {

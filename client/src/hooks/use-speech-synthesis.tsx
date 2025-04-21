@@ -93,11 +93,20 @@ export function useSpeechSynthesis({
   
   // Function to speak the current text
   const speak = useCallback(async () => {
-    if (!text || isSpeaking || isLoading) return;
+    // Prevent multiple calls if already speaking or loading
+    if (!text || isSpeaking || isLoading) {
+      console.log("Speech blocked: already speaking or loading, or no text");
+      return;
+    }
+    
+    // Immediately set speaking flag to prevent concurrent calls
+    setIsSpeaking(true);
+    setIsLoading(true);
     
     try {
       setError(null);
-      setIsLoading(true);
+      
+      console.log("Starting speech synthesis for:", text.substring(0, 30) + "...");
       
       // Get the audio URL (from cache if possible)
       const audioUrl = await openAIAudioService.textToSpeech(text, voice);
@@ -107,33 +116,34 @@ export function useSpeechSynthesis({
       wordsRef.current = text.split(/\s+/);
       currentWordIndexRef.current = -1;
       
-      // If we have a cached audio element, use it
-      const cachedAudio = openAIAudioService.getAudioElement(text, voice);
-      
-      if (cachedAudio) {
-        audioRef.current = cachedAudio;
-      } else {
-        // Create a new audio element if needed
-        if (!audioRef.current) {
-          audioRef.current = new Audio();
-        }
-        audioRef.current.src = audioUrl;
+      // Clean up any existing audio element to prevent conflicts
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.removeAttribute('src');
+        audioRef.current.load();
       }
       
-      // Set up audio events
+      // Create a fresh audio element each time to avoid stale state issues
+      audioRef.current = new Audio(audioUrl);
       const audio = audioRef.current;
       
+      // Set up audio events
+      audio.onloadedmetadata = () => {
+        console.log(`Audio loaded, duration: ${audio.duration}s`);
+      };
+      
       audio.onplay = () => {
-        setIsSpeaking(true);
+        console.log("Audio playback started");
         setIsLoading(false);
         
         if (onStart) onStart();
         
-        // Estimate word timing based on text length and audio duration
-        // This approach helps synchronize words with audio playback
+        // More accurate word timing based on actual audio duration
         const estimatedDuration = Math.max(audio.duration, 1);
-        const wordsCount = wordsRef.current.length;
+        const wordsCount = Math.max(wordsRef.current.length, 1);
         const intervalTime = (estimatedDuration * 1000) / wordsCount;
+        
+        console.log(`Word timing: ${intervalTime}ms per word (${wordsCount} words in ${estimatedDuration}s)`);
         
         // Function to update current word
         const updateCurrentWord = () => {
@@ -159,6 +169,11 @@ export function useSpeechSynthesis({
           let direction = 1; // 1 for increasing, -1 for decreasing
           let intensity = 0;
           
+          // Clear any existing interval first
+          if (intensityTimerRef.current) {
+            clearInterval(intensityTimerRef.current);
+          }
+          
           intensityTimerRef.current = setInterval(() => {
             // Change direction at boundaries
             if (intensity >= 100) direction = -1;
@@ -179,6 +194,7 @@ export function useSpeechSynthesis({
       };
       
       audio.onended = () => {
+        console.log("Audio playback ended");
         cleanUp();
         if (onEnd) onEnd();
       };
@@ -187,13 +203,23 @@ export function useSpeechSynthesis({
         console.error('Audio playback error:', e);
         setError('Error playing audio');
         setIsLoading(false);
-        setIsSpeaking(false);
         cleanUp();
       };
       
-      // Play the audio
+      // Play the audio with better error handling
       try {
-        await audio.play();
+        const playPromise = audio.play();
+        
+        // Modern browsers return a promise from play()
+        if (playPromise !== undefined) {
+          playPromise.catch(e => {
+            // Auto-play may be blocked or other issues
+            console.error('Play promise rejected:', e);
+            setError('Browser blocked audio play. Try clicking the Play button instead.');
+            setIsLoading(false);
+            cleanUp();
+          });
+        }
       } catch (e) {
         console.error('Play error:', e);
         setError('Error starting playback');
