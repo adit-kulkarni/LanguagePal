@@ -208,21 +208,69 @@ export function useSpeechSynthesis({
       
       // Play the audio with better error handling
       try {
-        const playPromise = audio.play();
+        console.log("🔈 Attempting to play audio from URL:", audioUrl);
         
-        // Modern browsers return a promise from play()
-        if (playPromise !== undefined) {
-          playPromise.catch(e => {
-            // Auto-play may be blocked or other issues
-            console.error('Play promise rejected:', e);
-            setError('Browser blocked audio play. Try clicking the Play button instead.');
+        // Force the audio to load before playing
+        audio.load();
+        
+        // Add an explicit canplaythrough event to ensure the audio has loaded
+        audio.oncanplaythrough = () => {
+          console.log("🔈 Audio can play through, attempting playback");
+          try {
+            const playPromise = audio.play();
+            
+            // Modern browsers return a promise from play()
+            if (playPromise !== undefined) {
+              playPromise.then(() => {
+                console.log("🔈 Audio playback started successfully");
+              }).catch(e => {
+                // Auto-play may be blocked or other issues
+                console.error('🔈 Play promise rejected:', e);
+                
+                // Try adding a user gesture requirement notice
+                setError('Browser blocked auto-play. Click Play button instead.');
+                
+                // Show browser's policy reason if available
+                if (e.name === 'NotAllowedError') {
+                  console.error('🔈 Browser blocked autoplay - requires user gesture');
+                } else {
+                  console.error('🔈 Play error reason:', e.message);
+                }
+                
+                setIsLoading(false);
+                cleanUp();
+              });
+            }
+          } catch (e) {
+            console.error('🔈 Play execution error:', e);
+            setError('Error executing playback');
             setIsLoading(false);
             cleanUp();
-          });
-        }
+          }
+        };
+        
+        // Also add timeout in case canplaythrough never fires
+        setTimeout(() => {
+          if (isSpeaking && isLoading) {
+            console.error('🔈 Audio loading timeout - trying to play anyway');
+            try {
+              audio.play().catch(e => {
+                console.error('🔈 Timeout play attempt failed:', e);
+                setError('Audio loading timeout');
+                setIsLoading(false);
+                cleanUp();
+              });
+            } catch (e) {
+              console.error('🔈 Timeout play execution error:', e);
+              setIsLoading(false);
+              cleanUp();
+            }
+          }
+        }, 3000);
+        
       } catch (e) {
-        console.error('Play error:', e);
-        setError('Error starting playback');
+        console.error('🔈 Audio setup error:', e);
+        setError('Error setting up audio playback');
         setIsLoading(false);
         cleanUp();
       }

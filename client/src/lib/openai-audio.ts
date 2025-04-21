@@ -59,9 +59,21 @@ class OpenAIAudioService {
       const blob = new Blob([audioData], { type: 'audio/mpeg' });
       const url = URL.createObjectURL(blob);
       
-      // Create a new audio element to cache
-      const audio = new Audio(url);
+      console.log('🔈 Created audio blob URL:', url, 'size:', audioData.byteLength, 'bytes');
+      
+      // Create a new audio element to cache with explicit handling
+      const audio = new Audio();
       audio.preload = 'auto';
+      
+      // Make sure we can actually play the format
+      if (audio.canPlayType('audio/mpeg') === '') {
+        console.warn('🔈 Browser cannot play audio/mpeg format!');
+      } else {
+        console.log('🔈 Browser can play audio/mpeg:', audio.canPlayType('audio/mpeg'));
+      }
+      
+      // Set source after configuration
+      audio.src = url;
       
       // Add to cache with current timestamp
       this.audioCache.set(cacheKey, {
