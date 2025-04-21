@@ -19,45 +19,41 @@ import AuthCallback from '@/pages/auth-callback';
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <div className="min-h-screen flex flex-col md:flex-row bg-background text-foreground">
-          <Navigation />
-          
-          <main className="flex-1 md:pl-16 pb-16 md:pb-0 relative">
-            <Switch>
-              <Route path="/">
-                <AuthPage />
-              </Route>
-              
-              <Route path="/auth/callback">
-                <AuthCallback />
-              </Route>
-              
-              <ProtectedRoute path="/home">
-                <Home />
-              </ProtectedRoute>
-              
-              <ProtectedRoute path="/practice">
-                <Practice />
-              </ProtectedRoute>
-              
-              <ProtectedRoute path="/progress">
-                <Progress />
-              </ProtectedRoute>
-              
-              <ProtectedRoute path="/settings">
-                <Settings />
-              </ProtectedRoute>
-              
-              <Route>
-                <NotFound />
-              </Route>
-            </Switch>
-          </main>
-          
-          <Toaster />
-        </div>
-      </AuthProvider>
+      <div className="min-h-screen flex flex-col md:flex-row bg-background text-foreground">
+        <Navigation />
+        
+        <main className="flex-1 md:pl-16 pb-16 md:pb-0 relative">
+          <Switch>
+            {/* Root path renders Practice page directly without auth check */}
+            <Route path="/">
+              <Practice />
+            </Route>
+            
+            {/* All other routes are also available without auth */}
+            <Route path="/home">
+              <Home />
+            </Route>
+            
+            <Route path="/practice">
+              <Practice />
+            </Route>
+            
+            <Route path="/progress">
+              <Progress />
+            </Route>
+            
+            <Route path="/settings">
+              <Settings />
+            </Route>
+            
+            <Route>
+              <NotFound />
+            </Route>
+          </Switch>
+        </main>
+        
+        <Toaster />
+      </div>
     </QueryClientProvider>
   );
 }

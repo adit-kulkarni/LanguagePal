@@ -4,6 +4,7 @@ import { TeacherAvatar } from "@/components/teacher-avatar";
 import { SpeechInput } from "@/components/speech-input";
 import { VideoCallInterface } from "@/components/video-call-interface";
 import { DirectAudioPlayer } from "@/components/direct-audio-player"; // Import the DirectAudioPlayer component
+import { openAIAudioService } from "@/lib/openai-audio"; // Import openAIAudioService directly
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -75,10 +76,8 @@ export default function Practice() {
   const [activeTeacherMessage, setActiveTeacherMessage] = React.useState<string>("");
   const isMobile = useIsMobile();
 
-  // Import at the top of the file
-  const { openAIAudioService } = React.useMemo(() => {
-    return { openAIAudioService: require("@/lib/openai-audio").openAIAudioService };
-  }, []);
+  // We're now importing openAIAudioService directly at the top of the file
+  // No need for useMemo or dynamic imports
   
   // Reference for improved DirectAudioPlayer
   const audioPlayerRef = React.useRef<{play: () => void} | null>(null);
