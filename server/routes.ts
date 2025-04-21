@@ -3,8 +3,7 @@ import { Server } from 'http';
 import http from 'http';
 import { generateSpeech, transcribeSpeech } from './openai-audio';
 
-export function registerRoutes(app: Express): Server {
-  const server = http.createServer(app);
+export function registerRoutes(app: Express): void {
   
   // Text-to-speech endpoint
   app.post("/api/speech/tts", async (req, res) => {
@@ -121,7 +120,7 @@ export function registerRoutes(app: Express): Server {
       `);
     } catch (error) {
       console.error("[API] Test TTS error:", error);
-      res.status(500).send("Error testing TTS: " + error.message);
+      res.status(500).send("Error testing TTS: " + (error instanceof Error ? error.message : String(error)));
     }
   });
   
@@ -130,36 +129,5 @@ export function registerRoutes(app: Express): Server {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
   });
   
-  // Root path - simple welcome page
-  app.get('/', (req, res) => {
-    res.send(`
-      <html>
-        <head>
-          <title>Spanish Language Learning API</title>
-          <style>
-            body { font-family: sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; line-height: 1.6; }
-            .card { border: 1px solid #ddd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; background: #f8f9fa; }
-            a { color: #0070f3; text-decoration: none; }
-            a:hover { text-decoration: underline; }
-            h1, h2 { color: #333; }
-            ul { padding-left: 1.5rem; }
-          </style>
-        </head>
-        <body>
-          <h1>Spanish Language Learning API</h1>
-          <div class="card">
-            <h2>Available Endpoints</h2>
-            <ul>
-              <li><a href="/api/health">/api/health</a> - Basic API health check</li>
-              <li><a href="/api/test-tts">/api/test-tts</a> - Test the text-to-speech functionality</li>
-              <li><strong>POST</strong> /api/speech/tts - Convert text to speech (requires JSON body)</li>
-              <li><strong>POST</strong> /api/speech/transcribe - Convert speech to text (requires audio data)</li>
-            </ul>
-          </div>
-        </body>
-      </html>
-    `);
-  });
-  
-  return server;
+  // Root path will be handled by Vite middleware in server/index.ts
 }
