@@ -79,16 +79,28 @@ export default function StablePractice() {
     }
     
     console.log(`Speaking message ID ${messageId}: ${text}`);
+    
+    // Update state
     setActiveMessage(messageId);
     setActiveTeacherMessage(text);
     
-    // Always open the video call interface when speaking
-    setIsVideoCallOpen(true);
-    
-    // Set the text in the speech hook and trigger speaking
-    speech.setText(text);
-    speech.speak();
-  }, [isSpeaking, isLoadingAudio, speech, setActiveMessage, setActiveTeacherMessage, setIsVideoCallOpen]);
+    // Make sure video call is open and visible before attempting to speak
+    if (!isVideoCallOpen) {
+      setIsVideoCallOpen(true);
+      
+      // Wait for the dialog to be fully visible before speaking
+      setTimeout(() => {
+        console.log("Video call interface opened, now speaking");
+        // Set the text in the speech hook and trigger speaking
+        speech.setText(text);
+        speech.speak();
+      }, 800);
+    } else {
+      // Interface is already open, speak directly
+      speech.setText(text);
+      speech.speak();
+    }
+  }, [isSpeaking, isLoadingAudio, speech, setActiveMessage, setActiveTeacherMessage, isVideoCallOpen, setIsVideoCallOpen]);
   
   // Auto-play welcome message on mount
   React.useEffect(() => {
@@ -96,16 +108,17 @@ export default function StablePractice() {
     
     // Auto-play welcome message on load if it exists
     if (messages.length > 0 && messages[0].type === "teacher") {
+      console.log("Preparing to play welcome message...");
+      
+      // First open the dialog and ensure it's fully rendered
+      setIsVideoCallOpen(true);
+      
+      // Use a longer delay to ensure the dialog is fully mounted and stable
       setTimeout(() => {
         const welcomeMsg = messages[0];
-        console.log("Auto-playing welcome message");
-        // Force video call to open before speaking, but with minimal delay
-        setIsVideoCallOpen(true);
-        console.log("Opening video call interface");
-        setTimeout(() => {
-          speak(welcomeMsg.content, welcomeMsg.id);
-        }, 100); // Reduced delay
-      }, 300); // Reduced delay to ensure component is fully mounted
+        console.log("Auto-playing welcome message now");
+        speak(welcomeMsg.content, welcomeMsg.id);
+      }, 1000); // Use a full second to ensure the dialog is rendered
     }
   }, [messages, speak]);
   
