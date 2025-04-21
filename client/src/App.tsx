@@ -1,149 +1,115 @@
-import { Switch, Route, Redirect } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Navigation } from "@/components/navigation";
-import { AuthProvider } from "@/hooks/use-auth";
-import { ProtectedRoute } from "@/lib/protected-route";
-import AuthPage from "@/pages/auth-page";
-import AuthCallback from "@/pages/auth-callback";
-import Home from "@/pages/home";
-import Practice from "@/pages/practice";
-import SimplePractice from "@/pages/simple-practice";
-import SimpleVideoCall from "@/pages/simple-video";
-import StablePractice from "@/pages/stable-practice-fixed-clean";
-import SpeechTest from "@/pages/speech-test";
-import Settings from "@/pages/settings";
-import Progress from "@/pages/progress";
-import NotFound from "@/pages/not-found";
-import TestPage from "@/pages/test-page";
-import AudioTest from "@/pages/audio-test";
-import { useEffect } from "react";
-
-console.log("🔵 App.tsx loaded successfully");
-console.log("🔵 Root element:", document.getElementById("root"));
-
-// Development mode testing - modify as needed
-const IS_DEV_MODE = true; // Set to true to bypass authentication in development
-const SKIP_AUTH = IS_DEV_MODE;
-
-function Router() {
-  useEffect(() => {
-    console.log("🔵 Router component mounted");
-  }, []);
-
-  return (
-    <Switch>
-      {/* Simplified test pages with no dependencies */}
-      <Route path="/test">
-        <TestPage />
-      </Route>
-      
-      <Route path="/simple">
-        <SimplePractice />
-      </Route>
-      
-      <Route path="/video">
-        <SimpleVideoCall />
-      </Route>
-      
-      <Route path="/stable">
-        <StablePractice />
-      </Route>
-      
-      <Route path="/speech">
-        <SpeechTest />
-      </Route>
-      
-      <Route path="/audio-test">
-        <AudioTest />
-      </Route>
-      
-      <Route path="/stable-practice">
-        <StablePractice />
-      </Route>
-
-      {/* Development direct access routes */}
-      {SKIP_AUTH && (
-        <Route path="/dev-practice">
-          <div className="md:grid md:grid-cols-[auto,1fr]">
-            <Navigation />
-            <main>
-              <Practice />
-            </main>
-          </div>
-        </Route>
-      )}
-
-      {/* Root redirects to stable practice page for testing */}
-      <Route path="/">
-        {/* {SKIP_AUTH ? <Redirect to="/dev-practice" /> : <Redirect to="/auth" />} */}
-        <Redirect to="/stable-practice" />
-      </Route>
-
-      {/* Authentication routes */}
-      <Route path="/auth" component={AuthPage} />
-      <Route path="/auth/callback" component={AuthCallback} />
-
-      {/* Protected routes */}
-      <ProtectedRoute path="/home">
-        <div className="md:grid md:grid-cols-[auto,1fr]">
-          <Navigation />
-          <main>
-            <Home />
-          </main>
-        </div>
-      </ProtectedRoute>
-
-      <ProtectedRoute path="/practice">
-        <div className="md:grid md:grid-cols-[auto,1fr]">
-          <Navigation />
-          <main>
-            <Practice />
-          </main>
-        </div>
-      </ProtectedRoute>
-
-      <ProtectedRoute path="/settings">
-        <div className="md:grid md:grid-cols-[auto,1fr]">
-          <Navigation />
-          <main>
-            <Settings />
-          </main>
-        </div>
-      </ProtectedRoute>
-
-      <ProtectedRoute path="/progress">
-        <div className="md:grid md:grid-cols-[auto,1fr]">
-          <Navigation />
-          <main>
-            <Progress />
-          </main>
-        </div>
-      </ProtectedRoute>
-
-      {/* 404 page */}
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
+import { useState, useRef } from 'react';
+import { SimplePlayer } from './components/simple-player';
+import { DirectAudioPlayer } from './components/direct-audio-player';
+import { openAIAudioService } from './lib/openai-audio';
 
 function App() {
-  useEffect(() => {
-    console.log("🔵 App component mounted");
-    console.log("🔵 Window location:", window.location.href);
-  }, []);
+  const [text, setText] = useState<string>('Hola, ¿cómo estás hoy? Espero que estés disfrutando aprendiendo español.');
+  const [voice, setVoice] = useState<string>('nova');
+  const [currentWord, setCurrentWord] = useState<string>('');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioPlayerRef = useRef<{ play: () => void } | null>(null);
+
+  // Preload audio when entering the app
+  const handlePreloadAudio = async () => {
+    try {
+      await openAIAudioService.preloadAudio(text, voice);
+      alert('Audio preloaded successfully!');
+    } catch (error) {
+      console.error('Error preloading audio:', error);
+      alert('Failed to preload audio');
+    }
+  };
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Router />
-          <Toaster />
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <div className="container">
+      <header className="header">
+        <h1>Spanish Language Learning - Audio Test</h1>
+      </header>
+
+      <main>
+        <div className="card">
+          <h2>Audio Testing Interface</h2>
+          <p>Test the different audio components and methods for Spanish language learning.</p>
+          
+          <div className="input-wrapper">
+            <label htmlFor="text-input">Spanish Text to Speak:</label>
+            <textarea 
+              id="text-input"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={4}
+            />
+          </div>
+          
+          <div className="input-wrapper">
+            <label htmlFor="voice-select">Voice:</label>
+            <select 
+              id="voice-select"
+              value={voice}
+              onChange={(e) => setVoice(e.target.value)}
+            >
+              <option value="nova">Nova (Female)</option>
+              <option value="alloy">Alloy (Neutral)</option>
+              <option value="echo">Echo (Male)</option>
+              <option value="fable">Fable (Male)</option>
+              <option value="onyx">Onyx (Male)</option>
+              <option value="shimmer">Shimmer (Female)</option>
+            </select>
+          </div>
+          
+          <div className="mb-4">
+            <button onClick={handlePreloadAudio}>
+              Preload Audio
+            </button>
+          </div>
+        </div>
+        
+        <div className="card">
+          <h3>Method 1: Simple Player Component</h3>
+          <p>Direct audio button with no external dependencies</p>
+          <SimplePlayer 
+            text={text}
+            voice={voice}
+            id="simple-player"
+          />
+        </div>
+        
+        <div className="card">
+          <h3>Method 2: Direct Audio Player with Word Tracking</h3>
+          <p>Advanced audio player with word tracking capability</p>
+          
+          <DirectAudioPlayer
+            ref={audioPlayerRef}
+            text={text}
+            voice={voice}
+            onStart={() => setIsPlaying(true)}
+            onEnd={() => {
+              setIsPlaying(false);
+              setCurrentWord('');
+            }}
+            onWordChange={setCurrentWord}
+            id="direct-player"
+          />
+          
+          <button
+            onClick={() => {
+              if (audioPlayerRef.current) {
+                audioPlayerRef.current.play();
+              }
+            }}
+          >
+            Play with Word Tracking
+          </button>
+          
+          {isPlaying && (
+            <div className="mt-4 p-2 bg-blue-100 rounded">
+              <p>Currently speaking: <strong>{currentWord}</strong></p>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }
 

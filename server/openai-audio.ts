@@ -1,20 +1,15 @@
-import { OpenAI } from 'openai';
-import fs from 'fs';
-import path from 'path';
-import { log } from './vite';
-import os from 'os';
-import crypto from 'crypto';
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { v4 as uuidv4 } from "uuid";
+import OpenAI from "openai";
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Helper function to get a temporary file path
 function getTempFilePath(prefix: string, extension: string): string {
   const tempDir = os.tmpdir();
-  const randomStr = crypto.randomBytes(8).toString('hex');
-  return path.join(tempDir, `${prefix}-${randomStr}.${extension}`);
+  const fileName = `${prefix}-${uuidv4()}.${extension}`;
+  return path.join(tempDir, fileName);
 }
 
 /**
@@ -25,32 +20,18 @@ function getTempFilePath(prefix: string, extension: string): string {
  */
 export async function generateSpeech(text: string, voice: string = 'nova'): Promise<Buffer> {
   try {
-    const trimmedText = text.trim();
-    if (!trimmedText) {
-      throw new Error('No text provided for speech generation');
-    }
-    
-    log(`Generating speech for text (${trimmedText.length} chars): "${trimmedText.substring(0, 30)}..."`);
-    
-    const validVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
-    const safeVoice = validVoices.includes(voice) ? voice : 'nova';
-    
-    // Create the audio with OpenAI
-    const mp3 = await openai.audio.speech.create({
-      model: 'tts-1-hd', // Using the high-definition model for better quality
-      voice: safeVoice as 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer',
-      input: trimmedText,
-      speed: 1.0, // Normal speed for better comprehension
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+    const response = await openai.audio.speech.create({
+      model: "tts-1-hd",
+      voice: voice as "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer",
+      input: text,
     });
-    
-    // Convert the response to a buffer
-    const buffer = Buffer.from(await mp3.arrayBuffer());
-    log(`Generated speech audio (${buffer.length} bytes)`);
-    
+
+    const buffer = Buffer.from(await response.arrayBuffer());
     return buffer;
   } catch (error) {
-    console.error('Error generating speech:', error);
-    throw new Error(`Speech generation failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.error("Error generating speech:", error);
+    throw error;
   }
 }
 
@@ -62,49 +43,27 @@ export async function generateSpeech(text: string, voice: string = 'nova'): Prom
  */
 export async function transcribeSpeech(audioBuffer: Buffer, language: string = 'es'): Promise<string> {
   try {
-    if (!audioBuffer || audioBuffer.length === 0) {
-      throw new Error('No audio data provided for transcription');
-    }
+    const tempFilePath = getTempFilePath('speech', 'webm');
     
-    log(`Transcribing speech (${audioBuffer.length} bytes) in language: ${language}`);
-    
-    // Save buffer to a temporary file with a unique name
-    const tempFilePath = getTempFilePath('whisper', 'webm');
+    // Write buffer to temp file
     fs.writeFileSync(tempFilePath, audioBuffer);
     
-    // Validate the file was written correctly
-    if (!fs.existsSync(tempFilePath)) {
-      throw new Error('Failed to create temporary audio file');
-    }
+    // Create a read stream for the file
+    const file = fs.createReadStream(tempFilePath);
     
-    const fileStream = fs.createReadStream(tempFilePath);
+    // Transcribe audio
+    const transcription = await openai.audio.transcriptions.create({
+      file,
+      model: "whisper-1",
+      language,
+    });
     
-    // Process the transcription
-    try {
-      const transcription = await openai.audio.transcriptions.create({
-        file: fileStream,
-        model: 'whisper-1',
-        language,
-        response_format: 'json',
-        temperature: 0.0, // Lower temperature for more accurate transcriptions
-        prompt: 'This is Spanish language practice.' // Help guide the model
-      });
-      
-      log(`Transcribed text: "${transcription.text.substring(0, 30)}..."`);
-      return transcription.text;
-    } finally {
-      // Always clean up temporary file
-      try {
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
-        }
-      } catch (cleanupError) {
-        console.error('Error cleaning up temporary file:', cleanupError);
-        // Continue with execution even if cleanup fails
-      }
-    }
+    // Clean up temp file
+    fs.unlinkSync(tempFilePath);
+    
+    return transcription.text;
   } catch (error) {
-    console.error('Error transcribing speech:', error);
-    throw new Error(`Speech transcription failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.error("Error transcribing speech:", error);
+    throw error;
   }
 }

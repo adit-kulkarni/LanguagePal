@@ -17,31 +17,28 @@ class OpenAIAudioService {
   private audioContext: AudioContext | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
-  
+
   constructor() {
-    // Setup a garbage collector for the audio cache
-    setInterval(() => this.cleanupCache(), this.cacheTTL / 2);
+    // Set up cache cleanup interval
+    setInterval(() => this.cleanupCache(), 60000); // Check every minute
   }
-  
+
   /**
    * Convert text to speech using OpenAI TTS API via our backend
    * Returns a cached URL if available or fetches a new one
    */
   async textToSpeech(text: string, voice = 'nova'): Promise<string> {
-    const cacheKey = `${text}:${voice}`;
+    // Create a cache key by combining text and voice
+    const cacheKey = `${text}-${voice}`;
     
-    // Check if we have the audio in cache
-    if (this.audioCache.has(cacheKey)) {
-      console.log('Using cached audio for:', text.substring(0, 30) + '...');
-      const cachedItem = this.audioCache.get(cacheKey)!;
-      // Update the timestamp to keep this entry "fresh"
-      cachedItem.createdAt = Date.now();
-      return cachedItem.url;
+    // Check if we have a cached version
+    const cached = this.audioCache.get(cacheKey);
+    if (cached) {
+      return cached.url;
     }
     
-    // Otherwise fetch the audio from the server
+    // Otherwise fetch new audio
     try {
-      console.log('Fetching audio for:', text.substring(0, 30) + '...');
       const response = await fetch('/api/speech/tts', {
         method: 'POST',
         headers: {
@@ -51,84 +48,71 @@ class OpenAIAudioService {
       });
       
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        throw new Error(`Server error: ${response.status}`);
       }
       
-      // Get the audio data and create a blob URL
       const audioData = await response.arrayBuffer();
       const blob = new Blob([audioData], { type: 'audio/mpeg' });
       const url = URL.createObjectURL(blob);
       
-      console.log('🔈 Created audio blob URL:', url, 'size:', audioData.byteLength, 'bytes');
-      
-      // Create a new audio element to cache with explicit handling
-      const audio = new Audio();
-      audio.preload = 'auto';
-      
-      // Make sure we can actually play the format
-      if (audio.canPlayType('audio/mpeg') === '') {
-        console.warn('🔈 Browser cannot play audio/mpeg format!');
-      } else {
-        console.log('🔈 Browser can play audio/mpeg:', audio.canPlayType('audio/mpeg'));
-      }
-      
-      // Set source after configuration
-      audio.src = url;
-      
-      // Add to cache with current timestamp
+      // Cache the result
       this.audioCache.set(cacheKey, {
         url,
-        audioElement: audio,
-        createdAt: Date.now()
+        createdAt: Date.now(),
       });
       
       return url;
     } catch (error) {
-      console.error('Error fetching audio:', error);
-      throw error;
+      console.error('Audio service error:', error);
+      throw new Error('Failed to generate speech');
     }
   }
-  
+
   /**
    * Return a cached audio element if available
    */
   getAudioElement(text: string, voice = 'nova'): HTMLAudioElement | null {
-    const cacheKey = `${text}:${voice}`;
-    const cachedItem = this.audioCache.get(cacheKey);
-    return cachedItem?.audioElement || null;
+    const cacheKey = `${text}-${voice}`;
+    const cached = this.audioCache.get(cacheKey);
+    
+    if (cached && cached.audioElement) {
+      return cached.audioElement;
+    }
+    
+    return null;
   }
-  
+
   /**
    * Preload audio for a given text for quicker playback later
    */
   async preloadAudio(text: string, voice = 'nova'): Promise<void> {
-    const cacheKey = `${text}:${voice}`;
-    
-    // Skip if already cached
-    if (this.audioCache.has(cacheKey)) {
-      return;
-    }
-    
     try {
-      // Fetch the audio but don't block on it
-      await this.textToSpeech(text, voice);
-      console.log('Preloaded audio for:', text.substring(0, 30) + '...');
+      const url = await this.textToSpeech(text, voice);
+      const cacheKey = `${text}-${voice}`;
+      const cached = this.audioCache.get(cacheKey);
+      
+      if (cached && !cached.audioElement) {
+        const audio = new Audio(url);
+        cached.audioElement = audio;
+        // Preload without playing
+        audio.load();
+        console.log("Audio preloaded successfully");
+      }
     } catch (error) {
-      console.error('Error preloading audio:', error);
+      console.error('Preload error:', error);
     }
   }
-  
+
   /**
    * Clean up old cache entries to prevent memory leaks
    */
   private cleanupCache(): void {
     const now = Date.now();
-    
-    // Find expired entries
     for (const [key, item] of this.audioCache.entries()) {
       if (now - item.createdAt > this.cacheTTL) {
-        // Revoke the blob URL to free memory
-        URL.revokeObjectURL(item.url);
+        if (item.url) {
+          URL.revokeObjectURL(item.url);
+        }
         this.audioCache.delete(key);
       }
     }
@@ -138,121 +122,74 @@ class OpenAIAudioService {
    * Create a recorder for speech-to-text functionality
    */
   createRecorder() {
-    const startRecording = async () => {
-      if (this.isRecording) return;
-      
-      this.isRecording = true;
-      this.audioChunks = [];
-      
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        
-        // Initialize audio context if needed
-        if (!this.audioContext) {
-          this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        }
-        
-        // Setup media recorder
+    if (this.isRecording) {
+      console.warn('Already recording');
+      return;
+    }
+    
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      console.error('Media recording not supported in this browser');
+      return;
+    }
+    
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        this.audioContext = new AudioContext();
         this.mediaRecorder = new MediaRecorder(stream);
+        this.audioChunks = [];
         
-        this.mediaRecorder.ondataavailable = (event) => {
+        this.mediaRecorder.addEventListener('dataavailable', (event) => {
           if (event.data.size > 0) {
             this.audioChunks.push(event.data);
           }
-        };
+        });
         
         this.mediaRecorder.start();
-        console.log('Recording started');
-        
-        return true;
-      } catch (error) {
-        console.error('Error starting recording:', error);
-        this.isRecording = false;
-        return false;
-      }
-    };
-    
-    const stopRecording = (): Promise<Blob | null> => {
-      return new Promise((resolve) => {
-        if (!this.isRecording || !this.mediaRecorder) {
-          resolve(null);
-          return;
-        }
-        
-        this.mediaRecorder.onstop = () => {
-          console.log('Recording stopped, chunks:', this.audioChunks.length);
-          
-          if (this.audioChunks.length === 0) {
-            resolve(null);
-            return;
-          }
-          
-          const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-          this.audioChunks = [];
-          this.isRecording = false;
-          
-          // Stop all tracks in the stream
-          if (this.mediaRecorder && this.mediaRecorder.stream) {
-            this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
-          }
-          
-          resolve(audioBlob);
-        };
-        
-        this.mediaRecorder.stop();
+        this.isRecording = true;
+      })
+      .catch(error => {
+        console.error('Error creating recorder:', error);
       });
-    };
-    
-    const cancelRecording = () => {
-      if (this.mediaRecorder && this.isRecording) {
-        this.mediaRecorder.stop();
-        
-        // Stop all tracks in the stream
-        if (this.mediaRecorder.stream) {
-          this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
-        }
-        
-        this.audioChunks = [];
-        this.isRecording = false;
-      }
-    };
-    
-    return {
-      startRecording,
-      stopRecording,
-      cancelRecording,
-      isRecording: () => this.isRecording
-    };
   }
-  
+
   /**
    * Transcribe audio using OpenAI Whisper API via our backend
    */
   async transcribeAudio(audioBlob: Blob, language = 'es'): Promise<string> {
     try {
-      // Convert blob to file with appropriate name
-      const file = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+      // Convert blob to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          const base64data = (reader.result as string).split(',')[1];
+          resolve(base64data);
+        };
+      });
+      reader.readAsDataURL(audioBlob);
       
-      // Create form data
-      const formData = new FormData();
-      formData.append('audio', file);
-      formData.append('language', language);
+      const base64Audio = await base64Promise;
       
-      // Send to server
+      // Send to backend for transcription
       const response = await fetch('/api/speech/transcribe', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audio: base64Audio,
+          language,
+        }),
       });
       
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        throw new Error(`Server error: ${response.status}`);
       }
       
-      const data = await response.json();
-      return data.text || '';
+      const result = await response.json();
+      return result.text;
     } catch (error) {
       console.error('Transcription error:', error);
-      throw error;
+      throw new Error('Failed to transcribe audio');
     }
   }
 }

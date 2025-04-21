@@ -1,620 +1,165 @@
-import { Express } from "express";
-import { createServer, Server } from "http";
-import { storage } from "./storage";
-import { getTeacherResponse, getQuickTeacherResponse, getCorrections } from "./openai";
-import { insertUserSchema, insertSessionSchema, insertMessageSchema } from "@shared/schema";
-import { translateWord } from "./dictionary";
-import { z } from "zod";
-import { WebSocketServer } from 'ws';
-import { wsConnections } from './index';
-import { generateSpeech, transcribeSpeech } from "./openai-audio";
-import multer from "multer";
-
-// Configure multer for handling file uploads
-const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-});
-
-// Add these helper functions at the top of the file
-function extractContextFromMessage(message: string): string {
-    const lowercaseMsg = message.toLowerCase();
-
-    // Common conversation topics
-    if (lowercaseMsg.includes("food") || lowercaseMsg.includes("eat") || lowercaseMsg.includes("restaurant")) {
-        return "ordering food";
-    }
-    if (lowercaseMsg.includes("direction") || lowercaseMsg.includes("where") || lowercaseMsg.includes("go to")) {
-        return "asking for directions";
-    }
-    if (lowercaseMsg.includes("name") || lowercaseMsg.includes("hello") || lowercaseMsg.includes("hi ")) {
-        return "introductions";
-    }
-    if (lowercaseMsg.includes("work") || lowercaseMsg.includes("job") || lowercaseMsg.includes("study")) {
-        return "work and education";
-    }
-
-    // Default context for general conversation
-    return "casual conversation";
-}
+import { Express } from 'express';
+import { Server } from 'http';
+import http from 'http';
+import { generateSpeech, transcribeSpeech } from './openai-audio';
 
 export function registerRoutes(app: Express): Server {
-    app.post("/api/users", async (req, res) => {
-        try {
-            // Create a user with default settings
-            const userData = {
-                username: `user_${Date.now()}`, // Generate a temporary username
-                password: "temp_password",      // This will be replaced by auth system
-                email: "temp@example.com",      // This will be replaced by auth system
-                settings: {
-                    grammarTenses: ["presente (present indicative)"],
-                    vocabularySets: ["100 most common nouns"]
-                },
-                progress: {
-                    grammar: 0,
-                    vocabulary: 0,
-                    speaking: 0,
-                    cefr: "A1"
-                }
-            };
-
-            const user = await storage.createUser(userData);
-            res.json(user);
-        } catch (error) {
-            console.error('User creation error:', error);
-            res.status(400).json({ message: "Invalid user data", error: String(error) });
-        }
-    });
-
-    app.patch("/api/users/:id/settings", async (req, res) => {
-        try {
-            const id = parseInt(req.params.id);
-            const settings = z.object({
-                grammarTenses: z.array(z.string()),
-                vocabularySets: z.array(z.string())
-            }).parse(req.body);
-
-            const user = await storage.updateUserSettings(id, settings);
-            res.json(user);
-        } catch (error) {
-            res.status(400).json({ message: "Invalid settings data" });
-        }
-    });
-
-    // Session management endpoints
-    app.post("/api/sessions", async (req, res) => {
-        try {
-            const sessionData = insertSessionSchema.parse({
-                ...req.body,
-                lastMessageAt: new Date()
-            });
-            const session = await storage.createSession(sessionData);
-            res.json(session);
-        } catch (error) {
-            res.status(400).json({ message: "Invalid session data" });
-        }
-    });
-
-    app.get("/api/users/:userId/sessions", async (req, res) => {
-        try {
-            const userId = parseInt(req.params.userId);
-            const sessions = await storage.getUserSessions(userId);
-            res.json(sessions);
-        } catch (error) {
-            res.status(500).json({ message: "Failed to fetch sessions" });
-        }
-    });
-
-    app.get("/api/sessions/:sessionId/messages", async (req, res) => {
-        try {
-            const sessionId = parseInt(req.params.sessionId);
-            const messages = await storage.getSessionMessages(sessionId);
-            res.json(messages);
-        } catch (error) {
-            res.status(500).json({ message: "Failed to fetch messages" });
-        }
-    });
-
-    // Conversations endpoint
-    app.post("/api/conversations", async (req, res) => {
-        try {
-            const userId = parseInt(req.body.userId);
-            const transcript = req.body.transcript;
-
-            const user = await storage.getUser(userId);
-            if (!user) {
-                return res.status(404).json({ message: "User not found" });
-            }
-
-            if (!user.settings) {
-                return res.status(400).json({ message: "User settings not configured" });
-            }
-
-            let context: string;
-            let finalTranscript: string;
-
-            // Handle explicit context start vs regular message
-            if (transcript.startsWith("START_CONTEXT:")) {
-                context = transcript.replace("START_CONTEXT:", "").trim();
-                finalTranscript = transcript;
-            } else {
-                // Extract context from the message
-                context = extractContextFromMessage(transcript);
-                finalTranscript = transcript;
-            }
-
-            // Create a new session
-            const session = await storage.createSession({
-                userId,
-                title: `Spanish Practice: ${context}`,
-                context,
-                lastMessageAt: new Date()
-            });
-
-            // Get quick response first for immediate feedback
-            const quickResponse = await getQuickTeacherResponse(
-                finalTranscript,
-                user.settings
-            );
-
-            // Save initial messages
-            if (!transcript.startsWith("START_CONTEXT:")) {
-                // Save user's message first
-                await storage.createMessage({
-                    sessionId: session.id,
-                    type: "user",
-                    content: transcript
-                });
-            }
-
-            // Save teacher's quick message (we'll update it later with corrections)
-            const message = await storage.createMessage({
-                sessionId: session.id,
-                type: "teacher",
-                content: quickResponse.message,
-                translation: quickResponse.translation
-            });
-
-            // Send the quick response immediately
-            res.json({
-                session,
-                teacherResponse: {
-                    message: quickResponse.message,
-                    translation: quickResponse.translation,
-                    corrections: { mistakes: [] }
-                }
-            });
-
-            // Start a background process to get corrections
-            getCorrections(finalTranscript, user.settings, [])
-                .then(async (corrections) => {
-                    // Update the message with corrections once they're available
-                    const updatedMessage = await storage.updateMessageCorrections(message.id, corrections);
-                    console.log('Message updated with corrections');
-                    
-                    // Notify any connected WebSocket clients for this session
-                    if (wsConnections.has(session.id)) {
-                        const clients = wsConnections.get(session.id);
-                        if (clients && clients.size > 0) {
-                            const updatePayload = JSON.stringify({
-                                type: 'correction_update',
-                                messageId: message.id,
-                                corrections: corrections,
-                                sessionId: session.id
-                            });
-                            
-                            clients.forEach(client => {
-                                if (client.readyState === 1) { // WebSocket.OPEN
-                                    client.send(updatePayload);
-                                }
-                            });
-                            console.log(`Sent correction updates to ${clients.size} clients`);
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error getting corrections:', error);
-                });
-        } catch (error) {
-            console.error('Conversation error:', error);
-            res.status(500).json({ message: "Failed to start conversation" });
-        }
-    });
-
-    // Message handling
-    app.post("/api/sessions/:sessionId/messages", async (req, res) => {
-        try {
-            const sessionId = parseInt(req.params.sessionId);
-            const session = await storage.getSession(sessionId);
-
-            if (!session) {
-                return res.status(404).json({ message: "Session not found" });
-            }
-
-            const user = await storage.getUser(session.userId);
-            if (!user || !user.settings) {
-                return res.status(400).json({ message: "User settings not configured" });
-            }
-
-            // Get recent messages for context
-            const recentMessages = await storage.getRecentMessages(sessionId, 5);
-
-            console.log('Received user message:', req.body.content);
-            
-            // Save user's message right away
-            const userMessage = await storage.createMessage({
-                sessionId,
-                type: "user",
-                content: req.body.content
-            });
-
-            // Get quick response for immediate feedback
-            const quickResponse = await getQuickTeacherResponse(
-                req.body.content,
-                user.settings
-            );
-
-            // Save teacher's quick response
-            const teacherMessage = await storage.createMessage({
-                sessionId,
-                type: "teacher",
-                content: quickResponse.message,
-                translation: quickResponse.translation
-            });
-
-            // Send immediate response to client
-            const immediateResponse = {
-                userMessage,
-                teacherMessage,
-                teacherResponse: {
-                    message: quickResponse.message,
-                    translation: quickResponse.translation,
-                    corrections: { mistakes: [] }
-                }
-            };
-            
-            console.log('Sending immediate response:', immediateResponse);
-            res.json(immediateResponse);
-
-            // In the background, get more detailed corrections
-            getCorrections(req.body.content, user.settings, recentMessages)
-                .then(async (corrections) => {
-                    // Update the message with corrections
-                    const updatedMessage = await storage.updateMessageCorrections(teacherMessage.id, corrections);
-                    console.log('Message updated with corrections:', corrections);
-                    
-                    // Notify any connected WebSocket clients for this session
-                    if (wsConnections.has(sessionId)) {
-                        const clients = wsConnections.get(sessionId);
-                        if (clients && clients.size > 0) {
-                            const updatePayload = JSON.stringify({
-                                type: 'correction_update',
-                                messageId: teacherMessage.id,
-                                corrections: corrections,
-                                sessionId: sessionId
-                            });
-                            
-                            clients.forEach(client => {
-                                if (client.readyState === 1) { // WebSocket.OPEN
-                                    client.send(updatePayload);
-                                }
-                            });
-                            console.log(`Sent correction updates to ${clients.size} clients`);
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error getting corrections:', error);
-                });
-        } catch (error) {
-            console.error('Message error:', error);
-            res.status(500).json({ message: "Failed to process message" });
-        }
-    });
-
-    app.patch("/api/users/:id/progress", async (req, res) => {
-        try {
-            const id = parseInt(req.params.id);
-            const progress = z.object({
-                grammar: z.number(),
-                vocabulary: z.number(),
-                speaking: z.number(),
-                cefr: z.string()
-            }).parse(req.body);
-
-            const user = await storage.updateUserProgress(id, progress);
-            res.json(user);
-        } catch (error) {
-            res.status(400).json({ message: "Invalid progress data" });
-        }
-    });
-
-    app.post("/api/translate", async (req, res) => {
-        try {
-            const word = z.string().parse(req.body.word);
-            const translation = await translateWord(word);
-            res.json(translation);
-        } catch (error) {
-            console.error('Translation error:', error);
-            res.status(500).json({ message: "Failed to translate word" });
-        }
-    });
-
-    app.post("/api/word-examples", async (req, res) => {
-        try {
-            const word = z.string().parse(req.body.word);
-            console.log(`Generating examples for word: ${word}`);
-
-            const response = await getTeacherResponse(
-                `Generate EXACTLY 2 simple example sentences in Spanish using the word "${word}".
-                 The sentences MUST:
-                 - Include the word "${word}" exactly as written
-                 - Be between 4-8 words long
-                 - End with a period
-                 - Be grammatically correct Spanish
-                 - Be at beginner level difficulty
-
-                 Return ONLY a JSON array with exactly 2 sentences: ["Sentence 1.", "Sentence 2."]
-                 No other text or explanation - just the JSON array.`,
-                { grammarTenses: [], vocabularySets: [] }
-            );
-
-            console.log('OpenAI Response:', response.message);
-
-            try {
-                // First try to parse the entire response as JSON
-                const examples = JSON.parse(response.message);
-                if (Array.isArray(examples) && examples.length === 2) {
-                    console.log('Successfully parsed examples:', examples);
-                    return res.json({ examples });
-                }
-            } catch (parseError) {
-                console.log('Failed to parse complete response:', parseError);
-
-                // If that fails, try to extract just the array part
+  const server = http.createServer(app);
+  
+  // Text-to-speech endpoint
+  app.post("/api/speech/tts", async (req, res) => {
+    const { text, voice = "nova" } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({ error: "Text is required" });
+    }
+    
+    try {
+      console.log(`[API] Generating speech (${text.length} chars): "${text.substring(0, 20)}..." with voice ${voice}`);
+      console.log(`[express] Generating speech for text (${text.length} chars): "${text.substring(0, 20)}..."`);
+      
+      const audioBuffer = await generateSpeech(text, voice);
+      console.log(`[express] Generated speech audio (${audioBuffer.byteLength} bytes)`);
+      console.log(`[API] Sending audio (${audioBuffer.byteLength} bytes) to client`);
+      
+      res.setHeader("Content-Type", "audio/mpeg");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.send(audioBuffer);
+    } catch (error) {
+      console.error("[API] TTS error:", error);
+      res.status(500).json({ error: "Speech generation failed" });
+    }
+  });
+  
+  // Speech-to-text endpoint
+  app.post("/api/speech/transcribe", async (req, res) => {
+    try {
+      if (!req.body || !req.body.audio) {
+        return res.status(400).json({ error: "Audio data is required" });
+      }
+      
+      const { audio, language = "es" } = req.body;
+      
+      // Convert base64 to buffer
+      const audioBuffer = Buffer.from(audio, 'base64');
+      console.log(`[API] Transcribing speech (${audioBuffer.length} bytes) in language: ${language}`);
+      console.log(`[express] Transcribing speech (${audioBuffer.length} bytes) in language: ${language}`);
+      
+      const transcription = await transcribeSpeech(audioBuffer, language);
+      console.log(`[express] Transcribed text: "${transcription.substring(0, 30)}..."`);
+      console.log(`[API] Transcription complete: "${transcription.substring(0, 50)}..."`);
+      
+      res.json({ text: transcription });
+    } catch (error) {
+      console.error("[API] Transcription error:", error);
+      res.status(500).json({ error: "Speech transcription failed" });
+    }
+  });
+  
+  // Test TTS endpoint with plain text response for browser testing
+  app.get('/api/test-tts', async (req, res) => {
+    try {
+      const testText = "Hola, esto es una prueba de audio en español.";
+      
+      console.log(`[API] Testing TTS with: "${testText}"`);
+      
+      // Generate speech but don't send it - just confirm it works
+      await generateSpeech(testText, 'nova');
+      
+      res.send(`
+        <html>
+          <head>
+            <title>Spanish TTS Test</title>
+            <style>
+              body { font-family: sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; }
+              .card { border: 1px solid #ddd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+              button { background: #0070f3; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+              h1, h2 { color: #333; }
+            </style>
+          </head>
+          <body>
+            <h1>Spanish TTS Test Page</h1>
+            <div class="card">
+              <h2>Sample Spanish Text</h2>
+              <p>${testText}</p>
+              <button onclick="playAudio()">Play Audio</button>
+              <audio id="audioPlayer" style="margin-top: 1rem; width: 100%"></audio>
+            </div>
+            <script>
+              async function playAudio() {
                 try {
-                    const jsonMatch = response.message.match(/\[(.*?)\]/s);
-                    if (jsonMatch) {
-                        const examples = JSON.parse(jsonMatch[0]);
-                        if (Array.isArray(examples) && examples.length > 0) {
-                            console.log('Successfully parsed extracted examples:', examples);
-                            return res.json({ examples });
-                        }
-                    }
-                } catch (extractError) {
-                    console.error('Failed to parse extracted examples:', extractError);
+                  const response = await fetch('/api/speech/tts', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      text: "${testText}",
+                      voice: "nova"
+                    }),
+                  });
+                  
+                  if (!response.ok) {
+                    throw new Error('Failed to generate speech');
+                  }
+                  
+                  const audioBlob = await response.blob();
+                  const audioUrl = URL.createObjectURL(audioBlob);
+                  
+                  const audioPlayer = document.getElementById('audioPlayer');
+                  audioPlayer.src = audioUrl;
+                  audioPlayer.controls = true;
+                  audioPlayer.play();
+                } catch (error) {
+                  console.error('Error playing audio:', error);
+                  alert('Failed to play audio: ' + error.message);
                 }
-            }
-
-            // If all parsing attempts fail, return empty array with message
-            console.log('No valid examples could be generated');
-            res.json({
-                examples: [],
-                message: `Could not generate example sentences for "${word}". Please try another word.`
-            });
-        } catch (error) {
-            console.error('Examples error:', error);
-            res.json({
-                examples: [],
-                message: "Failed to generate example sentences. Please try again."
-            });
-        }
-    });
-
-    app.delete("/api/sessions/:sessionId", async (req, res) => {
-        try {
-            const sessionId = parseInt(req.params.sessionId);
-            await storage.deleteSession(sessionId);
-            res.status(200).json({ message: "Session deleted successfully" });
-        } catch (error) {
-            console.error('Delete session error:', error);
-            res.status(500).json({ message: "Failed to delete session" });
-        }
-    });
-
-    app.get("/api/users/:userId/corrections-history", async (req, res) => {
-        try {
-            const userId = parseInt(req.params.userId);
-            const sessions = await storage.getUserSessions(userId);
-            const correctionsHistory = [];
-
-            // Gather corrections from all sessions
-            for (const session of sessions) {
-                const messages = await storage.getSessionMessages(session.id);
-                for (const message of messages) {
-                    if (
-                        message.type === "teacher" && 
-                        message.corrections?.mistakes && 
-                        message.corrections.mistakes.length > 0
-                    ) {
-                        correctionsHistory.push({
-                            sessionId: session.id,
-                            sessionContext: session.context,
-                            timestamp: message.createdAt,
-                            mistakes: message.corrections.mistakes,
-                            // Find the user message that prompted these corrections
-                            userMessage: messages.find(
-                                m => m.type === "user" && 
-                                new Date(m.createdAt) < new Date(message.createdAt)
-                            )?.content
-                        });
-                    }
-                }
-            }
-
-            // Sort by most recent first
-            correctionsHistory.sort((a, b) => 
-                new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-            );
-
-            res.json(correctionsHistory);
-        } catch (error) {
-            console.error('Failed to fetch corrections history:', error);
-            res.status(500).json({ message: "Failed to fetch corrections history" });
-        }
-    });
-
-    app.get("/api/users/:id", async (req, res) => {
-        try {
-            const id = parseInt(req.params.id);
-            const user = await storage.getUser(id);
-
-            if (!user) {
-                return res.status(404).json({ message: "User not found" });
-            }
-
-            // Ensure we have default progress values
-            const progress = user.progress || {
-                grammar: 0,
-                vocabulary: 0,
-                speaking: 0,
-                cefr: "A1"
-            };
-
-            res.json({
-                id: user.id,
-                email: user.email,
-                progress
-            });
-        } catch (error) {
-            console.error('Get user error:', error);
-            res.status(500).json({ message: "Failed to fetch user" });
-        }
-    });
-
-    // OpenAI speech API endpoints
-    app.post("/api/speech/tts", async (req, res) => {
-        try {
-            const schema = z.object({
-                text: z.string().min(1).max(4000),
-                voice: z.enum(['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']).default('nova')
-            });
-            
-            const { text, voice } = schema.parse(req.body);
-            
-            // Get only the first part of text for logging (respect privacy)
-            const truncatedText = text.length > 30 ? 
-                `${text.substring(0, 30)}...` : 
-                text;
-                
-            console.log(`[API] Generating speech (${text.length} chars): "${truncatedText}" with voice ${voice}`);
-            
-            try {
-                const audioBuffer = await generateSpeech(text, voice);
-                
-                // Set appropriate headers for audio streaming
-                res.setHeader('Content-Type', 'audio/mpeg');
-                res.setHeader('Content-Length', audioBuffer.length);
-                
-                // Cache control to improve client-side caching
-                res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour
-                
-                // Audio data is not sensitive, so just send it
-                // (our privacy policy should mention TTS usage)
-                console.log(`[API] Sending audio (${audioBuffer.length} bytes) to client`);
-                res.send(audioBuffer);
-            } catch (error) {
-                console.error('[API] OpenAI TTS error:', error);
-                
-                // Provide meaningful error to client
-                if (error instanceof Error && error.message.includes('maximum context length')) {
-                    return res.status(413).json({
-                        message: "Text too long for speech synthesis",
-                        error: "Please use shorter text segments"
-                    });
-                }
-                
-                if (error instanceof Error && error.message.includes('rate limit')) {
-                    return res.status(429).json({
-                        message: "Rate limit exceeded",
-                        error: "Please try again in a few moments"
-                    });
-                }
-                
-                res.status(500).json({ 
-                    message: "Failed to generate speech", 
-                    error: error instanceof Error ? error.message : String(error) 
-                });
-            }
-        } catch (validationError) {
-            console.error('[API] TTS validation error:', validationError);
-            res.status(400).json({ 
-                message: "Invalid input for speech generation", 
-                error: validationError instanceof Error ? validationError.message : String(validationError) 
-            });
-        }
-    });
-
-    // OpenAI Speech-to-Text endpoint with improved error handling
-    app.post("/api/speech/transcribe", upload.single('audio'), async (req, res) => {
-        try {
-            if (!req.file) {
-                return res.status(400).json({ message: "No audio file provided" });
-            }
-            
-            const language = req.body.language || 'es';
-            console.log(`[API] Transcribing speech (${req.file.size} bytes) in language: ${language}`);
-            
-            // Check file size to avoid hitting API limits
-            const MAX_SIZE = 25 * 1024 * 1024; // 25MB limit for OpenAI
-            if (req.file.size > MAX_SIZE) {
-                return res.status(413).json({ 
-                    message: "Audio file too large", 
-                    error: "Maximum file size is 25MB" 
-                });
-            }
-            
-            try {
-                const transcription = await transcribeSpeech(req.file.buffer, language);
-                console.log(`[API] Transcription complete: "${transcription.substring(0, 50)}..."`);
-                
-                res.json({ 
-                    text: transcription,
-                    success: true
-                });
-            } catch (error) {
-                console.error('[API] OpenAI STT error:', error);
-                
-                if (error instanceof Error && error.message.includes('rate limit')) {
-                    return res.status(429).json({
-                        message: "Rate limit exceeded",
-                        error: "Please try again in a few moments"
-                    });
-                }
-                
-                res.status(500).json({ 
-                    message: "Failed to transcribe speech", 
-                    error: error instanceof Error ? error.message : String(error),
-                    success: false
-                });
-            }
-        } catch (error) {
-            console.error('[API] STT request error:', error);
-            res.status(500).json({ 
-                message: "Failed to process speech-to-text request", 
-                error: error instanceof Error ? error.message : String(error),
-                success: false
-            });
-        }
-    });
-    
-    // Legacy endpoints for backward compatibility
-    app.post("/api/text-to-speech", (req, res) => {
-        console.log("[API] Redirecting legacy TTS request to /api/speech/tts");
-        // Forward to new endpoint
-        req.url = '/api/speech/tts';
-        app._router.handle(req, res);
-    });
-    
-    app.post("/api/speech-to-text", upload.single('audio'), (req, res) => {
-        console.log("[API] Redirecting legacy STT request to /api/speech/transcribe");
-        // Forward to new endpoint
-        req.url = '/api/speech/transcribe';
-        app._router.handle(req, res);
-    });
-
-    const httpServer = createServer(app);
-    return httpServer;
+              }
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("[API] Test TTS error:", error);
+      res.status(500).send("Error testing TTS: " + error.message);
+    }
+  });
+  
+  // Basic health check endpoint
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  });
+  
+  // Root path - simple welcome page
+  app.get('/', (req, res) => {
+    res.send(`
+      <html>
+        <head>
+          <title>Spanish Language Learning API</title>
+          <style>
+            body { font-family: sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+            .card { border: 1px solid #ddd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; background: #f8f9fa; }
+            a { color: #0070f3; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+            h1, h2 { color: #333; }
+            ul { padding-left: 1.5rem; }
+          </style>
+        </head>
+        <body>
+          <h1>Spanish Language Learning API</h1>
+          <div class="card">
+            <h2>Available Endpoints</h2>
+            <ul>
+              <li><a href="/api/health">/api/health</a> - Basic API health check</li>
+              <li><a href="/api/test-tts">/api/test-tts</a> - Test the text-to-speech functionality</li>
+              <li><strong>POST</strong> /api/speech/tts - Convert text to speech (requires JSON body)</li>
+              <li><strong>POST</strong> /api/speech/transcribe - Convert speech to text (requires audio data)</li>
+            </ul>
+          </div>
+        </body>
+      </html>
+    `);
+  });
+  
+  return server;
 }

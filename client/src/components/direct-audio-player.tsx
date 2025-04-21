@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from "react";
 
 interface DirectAudioPlayerProps {
   text: string | null;
@@ -15,263 +15,165 @@ interface DirectAudioPlayerProps {
  * This component handles direct audio loading and playback without excess complexity
  */
 export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudioPlayerProps>(
-  function DirectAudioPlayer({
-    text,
-    voice = 'nova',
-    onStart,
-    onEnd,
-    autoPlay = false,
-    onWordChange,
-    id
-  }, ref) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const wordTimerRef = useRef<number | null>(null);
-  
-  // Clean up function for word timers
-  const cleanupWordTimer = useCallback(() => {
-    if (wordTimerRef.current) {
-      clearInterval(wordTimerRef.current);
-      wordTimerRef.current = null;
-    }
+  ({ text, voice = 'nova', onStart, onEnd, autoPlay = false, onWordChange, id }, ref) => {
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
     
-    // Clear any highlighted word
-    if (onWordChange) {
-      onWordChange('');
-    }
-  }, [onWordChange]);
-  
-  // Load audio when text changes
-  useEffect(() => {
-    if (!text) {
-      console.log("[DirectAudioPlayer] No text provided");
-      return;
-    }
-    
-    const loadAudio = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        console.log("[DirectAudioPlayer] Fetching audio for:", text);
-        
-        // Direct API call to get audio
-        const response = await fetch('/api/speech/tts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ text, voice }),
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status} ${response.statusText}`);
-        }
-        
-        // Get the audio data
-        const audioData = await response.arrayBuffer();
-        console.log("[DirectAudioPlayer] Received audio data:", audioData.byteLength, "bytes");
-        
-        if (audioData.byteLength === 0) {
-          throw new Error("Received empty audio data");
-        }
-        
-        // Create blob with explicit MIME type for MP3
-        const blob = new Blob([audioData], { type: 'audio/mpeg' });
-        const url = URL.createObjectURL(blob);
-        
-        console.log("[DirectAudioPlayer] Created blob URL:", url);
-        setAudioUrl(url);
-        
-        setIsLoading(false);
-      } catch (error) {
-        console.error("[DirectAudioPlayer] Error:", error);
-        setError(error instanceof Error ? error.message : 'Unknown error');
-        setIsLoading(false);
-      }
-    };
-    
-    loadAudio();
-    
-    // Clean up
-    return () => {
-      cleanupWordTimer();
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  }, [text, voice, cleanupWordTimer]);
-  
-  // Set up audio events when URL changes
-  useEffect(() => {
-    if (!audioRef.current || !audioUrl || !text) return;
-    
-    const audio = audioRef.current;
-    
-    const handlePlay = () => {
-      console.log("[DirectAudioPlayer] Audio playback started");
-      if (onStart) onStart();
+    // Create event listener for custom play event
+    useEffect(() => {
+      const handleError = (e: Event) => {
+        console.error('[DirectAudioPlayer] Audio error:', e);
+        setError('Error playing audio');
+        setIsPlaying(false);
+        if (onEnd) onEnd();
+      };
       
-      // Set up word-by-word tracking if needed
-      if (onWordChange) {
-        // Split text into words
-        const words = text.split(/\s+/);
-        
-        // Get duration or use estimated duration
-        const duration = audio.duration || (text.length * 0.08); // Rough estimate
-        
-        // Calculate interval for word display
-        const wordInterval = duration * 1000 / words.length;
-        
-        console.log(`[DirectAudioPlayer] Word timing: ${wordInterval}ms per word (${words.length} words in ${duration}s)`);
-        
-        cleanupWordTimer(); // Clear any existing timer
-        
-        // Start word update at regular intervals
-        let wordIndex = 0;
-        wordTimerRef.current = window.setInterval(() => {
-          if (wordIndex < words.length) {
-            const word = words[wordIndex];
-            console.log(`[DirectAudioPlayer] Current word: ${word} (${wordIndex+1}/${words.length})`);
-            if (onWordChange) onWordChange(word);
-            wordIndex++;
-          } else {
-            cleanupWordTimer();
+      const handlePlayRequest = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        if (customEvent.detail?.id === id) {
+          console.log('[DirectAudioPlayer] Received play request for ID:', id);
+          if (audioRef.current) {
+            audioRef.current.play().catch(err => {
+              console.error('[DirectAudioPlayer] Play request error:', err);
+              setError('Failed to play audio');
+              if (onEnd) onEnd();
+            });
           }
-        }, wordInterval);
-      }
-    };
+        }
+      };
+      
+      // Add event listeners
+      window.addEventListener('directAudioPlayerPlay', handlePlayRequest);
+      
+      // Clean up
+      return () => {
+        window.removeEventListener('directAudioPlayerPlay', handlePlayRequest);
+      };
+    }, [id, onEnd]);
     
-    const handleEnded = () => {
-      console.log("[DirectAudioPlayer] Audio playback ended");
-      cleanupWordTimer();
-      if (onEnd) onEnd();
-    };
+    // Load the audio when the text changes
+    useEffect(() => {
+      let isMounted = true;
+      setError(null);
+      
+      const loadAudio = async () => {
+        if (!text) return;
+        
+        try {
+          const response = await fetch('/api/speech/tts', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text,
+              voice,
+            }),
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch audio: ${response.status}`);
+          }
+          
+          const audioData = await response.arrayBuffer();
+          console.log('[DirectAudioPlayer] Received audio data:', audioData.byteLength, 'bytes');
+          
+          // Create a blob URL for the audio data
+          const blob = new Blob([audioData], { type: 'audio/mpeg' });
+          const url = URL.createObjectURL(blob);
+          console.log('[DirectAudioPlayer] Created blob URL:', url);
+          
+          if (isMounted) {
+            setAudioUrl(url);
+          }
+        } catch (err) {
+          console.error('[DirectAudioPlayer] Error loading audio:', err);
+          if (isMounted) {
+            setError('Failed to load audio');
+          }
+        }
+      };
+      
+      loadAudio();
+      
+      return () => {
+        isMounted = false;
+        // Cleanup any previous audio URL to prevent memory leaks
+        if (audioUrl) {
+          URL.revokeObjectURL(audioUrl);
+        }
+      };
+    }, [text, voice]);
     
-    const handleError = (e: Event) => {
-      console.error("[DirectAudioPlayer] Audio error:", e);
-      setError("Audio playback error");
-      cleanupWordTimer();
-    };
-    
-    // Set up event listeners
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('error', handleError);
-    
-    // Auto-play if needed
-    if (autoPlay) {
-      // Need a small delay to make sure the audio is loaded
-      setTimeout(() => {
-        console.log("[DirectAudioPlayer] Attempting auto-play");
-        audio.play().catch(e => {
-          console.error("[DirectAudioPlayer] Auto-play error:", e);
-          setError("Browser blocked auto-play. Please click play button.");
+    // Set up the audio element once the URL is available
+    useEffect(() => {
+      if (!audioUrl) return;
+      
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      const handleEnded = () => {
+        setIsPlaying(false);
+        if (onEnd) onEnd();
+      };
+      
+      const handlePlay = () => {
+        setIsPlaying(true);
+        if (onStart) onStart();
+      };
+      
+      const handleTimeUpdate = () => {
+        // This is where we would implement word tracking
+        // For now, just a simple placeholder
+        if (onWordChange && text) {
+          const progress = audio.currentTime / audio.duration;
+          const words = text.split(' ');
+          const wordIndex = Math.min(
+            Math.floor(progress * words.length),
+            words.length - 1
+          );
+          onWordChange(words[wordIndex]);
+        }
+      };
+      
+      audio.addEventListener('ended', handleEnded);
+      audio.addEventListener('play', handlePlay);
+      audio.addEventListener('error', (e) => console.error('Audio error:', e));
+      audio.addEventListener('timeupdate', handleTimeUpdate);
+      
+      if (autoPlay) {
+        audio.play().catch(err => {
+          console.error('[DirectAudioPlayer] Autoplay error:', err);
+          setError('Failed to autoplay audio');
         });
-      }, 100);
-    }
-    
-    // Clean up
-    return () => {
-      audio.removeEventListener('play', handlePlay);
-      audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('error', handleError);
-    };
-  }, [audioUrl, text, onStart, onEnd, onWordChange, autoPlay, cleanupWordTimer]);
-  
-  // Play function for manual play button
-  const playAudio = useCallback(() => {
-    if (audioRef.current && audioUrl) {
-      console.log("[DirectAudioPlayer] Manual play triggered");
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(e => {
-        console.error("[DirectAudioPlayer] Play error:", e);
-        setError("Error playing audio");
-      });
-    } else {
-      console.warn("[DirectAudioPlayer] Cannot play - audio not ready", {audioRef: !!audioRef.current, audioUrl});
-    }
-  }, [audioUrl]);
-  
-  // Expose play method to parent components via imperative handle
-  React.useImperativeHandle(
-    ref,
-    () => ({
-      play: playAudio
-    }),
-    [playAudio]
-  );
-  
-  // Listen for global play requests - this allows for external control
-  useEffect(() => {
-    // Set up global event listener for external play trigger
-    const handlePlayRequest = (event: Event) => {
-      const customEvent = event as CustomEvent<{ text: string }>;
-      // Only play if this component has matching text
-      if (text && customEvent.detail.text === text) {
-        console.log("[DirectAudioPlayer] Received external play request");
-        playAudio();
       }
-    };
+      
+      return () => {
+        audio.removeEventListener('ended', handleEnded);
+        audio.removeEventListener('play', handlePlay);
+        audio.removeEventListener('timeupdate', handleTimeUpdate);
+        audio.pause();
+        audioRef.current = null;
+      };
+    }, [audioUrl, onEnd, onStart, autoPlay, text, onWordChange]);
     
-    window.addEventListener('request-audio-playback', handlePlayRequest);
+    // Expose play method via ref
+    React.useImperativeHandle(ref, () => ({
+      play: () => {
+        if (audioRef.current) {
+          audioRef.current.play().catch(err => {
+            console.error('[DirectAudioPlayer] Play error:', err);
+            setError('Failed to play audio');
+          });
+        }
+      }
+    }));
     
-    return () => {
-      window.removeEventListener('request-audio-playback', handlePlayRequest);
-    };
-  }, [text, playAudio]);
-  
-  return (
-    <div>
-      {audioUrl && (
-        <audio
-          id={id} // Add ID for direct reference
-          ref={audioRef}
-          src={audioUrl}
-          preload="auto"
-          controls={false}
-          onLoadedData={() => console.log("[DirectAudioPlayer] Audio loaded successfully")}
-          onCanPlay={() => {
-            console.log("[DirectAudioPlayer] Audio can play");
-            // Try immediate play on canplay event if auto play is enabled
-            if (autoPlay && audioRef.current) {
-              console.log("[DirectAudioPlayer] Attempting play on canplay event");
-              audioRef.current.play().catch(err => 
-                console.log("[DirectAudioPlayer] Couldn't autoplay on canplay:", err.message)
-              );
-            }
-          }}
-        />
-      )}
-      
-      {error && (
-        <div className="text-red-500 text-sm mt-1">
-          {error}
-        </div>
-      )}
-      
-      {isLoading && (
-        <div className="text-blue-500 text-sm mt-1 animate-pulse">
-          Cargando audio...
-        </div>
-      )}
-      
-      {!autoPlay && audioUrl && (
-        <button
-          onClick={playAudio}
-          disabled={isLoading}
-          className="mt-2 px-3 py-1 bg-primary text-white rounded hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center gap-1"
-        >
-          {isLoading ? (
-            <span>Cargando...</span>
-          ) : (
-            <span>Reproducir</span>
-          )}
-        </button>
-      )}
-    </div>
-  );
-});
+    // The component doesn't render anything visible
+    return null;
+  }
+);
+
+DirectAudioPlayer.displayName = "DirectAudioPlayer";
