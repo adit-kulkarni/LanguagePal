@@ -384,7 +384,7 @@ export default function StablePractice() {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="font-bold text-lg">Spanish Practice (Stable)</h1>
+          <h1 className="font-bold text-lg">Spanish Practice (Unstable)</h1>
           {currentSession && (
             <Button 
               variant="ghost" 
