@@ -253,57 +253,25 @@ export default function StablePractice() {
   // Ref to ensure welcome message only plays once
   const hasPlayedWelcomeRef = React.useRef(false);
   
-  // Welcome message audio component - a simple player just for welcome message
-  const WelcomeAudio = React.useCallback(() => {
-    const welcomeMessage = messages.length > 0 && messages[0].type === "teacher" ? messages[0].content : null;
-    const [isPlayed, setIsPlayed] = React.useState(false);
-    const [isReady, setIsReady] = React.useState(false);
-    
-    // Handle direct play - this is a user-initiated play to work around autoplay restrictions
-    const handleManualPlay = React.useCallback(() => {
-      if (welcomeMessage && !isPlayed && messages[0]) {
-        console.log("Playing welcome message via manual trigger");
-        setIsPlayed(true);
-        speak(welcomeMessage, messages[0].id);
-      }
-    }, [welcomeMessage, isPlayed]);
-    
-    // Set up initial state
-    React.useEffect(() => {
-      if (welcomeMessage && !hasPlayedWelcomeRef.current) {
-        setIsReady(true);
-        console.log("Welcome message ready for playback:", welcomeMessage);
-        
-        // Open dialog
-        setIsVideoCallOpen(true);
-        
-        // Mark as attempted playback
-        hasPlayedWelcomeRef.current = true;
-        
-        // Try auto-play after a delay
-        setTimeout(() => {
-          console.log("Attempting welcome message autoplay");
-          handleManualPlay();
-        }, 1500);
-      }
-    }, [welcomeMessage, handleManualPlay]);
-    
-    if (!isReady || isPlayed) return null;
-    
-    return (
-      <div className="fixed bottom-4 right-4 z-50 bg-primary text-white p-4 rounded-lg shadow-lg animate-pulse">
-        <p className="mb-2">¡Haga clic para comenzar la conversación!</p>
-        <button 
-          onClick={handleManualPlay}
-          className="w-full py-2 px-4 bg-white text-primary font-semibold rounded hover:bg-gray-100 flex items-center justify-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-          </svg>
-          Reproducir audio
-        </button>
-      </div>
-    );
+  // State for welcome message
+  const [showWelcomeButton, setShowWelcomeButton] = React.useState(true);
+  
+  // Function to play welcome message manually
+  const playWelcomeMessage = React.useCallback(() => {
+    if (messages.length > 0 && messages[0].type === "teacher") {
+      // Set dialog open
+      setIsVideoCallOpen(true);
+      
+      // Mark as played
+      hasPlayedWelcomeRef.current = true;
+      setShowWelcomeButton(false);
+      
+      // Play message after a short delay to ensure dialog is visible
+      setTimeout(() => {
+        console.log("Playing welcome message manually");
+        speak(messages[0].content, messages[0].id);
+      }, 800);
+    }
   }, [messages, speak, setIsVideoCallOpen]);
   
   // Auto-play welcome message on mount - only once when component first loads
@@ -377,7 +345,25 @@ export default function StablePractice() {
   
   return (
     <div className="h-screen overflow-hidden flex flex-col md:flex-row relative">
-      <WelcomeAudio />
+      {/* Welcome Message Button */}
+      {showWelcomeButton && messages.length > 0 && messages[0].type === "teacher" && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-2xl max-w-md mx-auto text-center">
+            <h2 className="text-2xl font-bold mb-4">¡Bienvenido a la Práctica de Español!</h2>
+            <p className="mb-6 text-gray-600">Haga clic en el botón para comenzar la conversación con la profesora</p>
+            <Button 
+              onClick={playWelcomeMessage}
+              size="lg"
+              className="w-full py-6 text-lg flex items-center justify-center gap-2 animate-pulse"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              Comenzar Conversación
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Mobile header with menu button */}
       {isMobile && (
         <div className="h-14 border-b px-4 flex items-center justify-between sticky top-0 bg-background z-20">
