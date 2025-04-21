@@ -3,6 +3,7 @@ import { SimplePlayer } from './components/simple-player';
 import { DirectAudioPlayer } from './components/direct-audio-player';
 import { openAIAudioService } from './lib/openai-audio';
 import { Route, Switch, Redirect } from 'wouter';
+import Practice from './pages/practice';
 import StablePractice from './pages/stable-practice';
 
 function App() {
@@ -48,12 +49,17 @@ function App() {
   return (
     <div className="app-container">
       <Switch>
-        {/* Redirect the root to stable-practice */}
+        {/* Redirect the root to practice */}
         <Route path="/">
-          <Redirect to="/stable-practice" />
+          <Redirect to="/practice" />
         </Route>
         
-        {/* Stable Practice page as the main page */}
+        {/* Original Practice page as the main page */}
+        <Route path="/practice">
+          <Practice />
+        </Route>
+        
+        {/* Stable Practice page for testing */}
         <Route path="/stable-practice">
           <StablePractice />
         </Route>
