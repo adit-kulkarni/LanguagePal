@@ -322,7 +322,7 @@ export default function StablePractice() {
           <Card className="mx-4 md:mx-8 mt-2 md:mt-4 bg-accent/10">
             <CardContent className="p-3 md:p-4">
               <p className="text-sm text-center text-muted-foreground">
-                Stable Practice Mode - Using {FEATURE_FLAGS.ENABLE_OPENAI_AUDIO ? 'OpenAI speech' : 'browser speech synthesis'}
+                Stable Practice Mode - Using {FEATURE_FLAGS.ENABLE_OPENAI_AUDIO ? 'OpenAI speech' : 'browser speech synthesis'} (HMR Working!)
               </p>
             </CardContent>
           </Card>
