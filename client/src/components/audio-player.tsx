@@ -54,6 +54,17 @@ export function AudioPlayer({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [currentWord, setCurrentWord] = useState<string>('');
+
+  // Create a global way to track words - not ideal, but a quick fix
+  const updateGlobalWord = useCallback((word: string) => {
+    setCurrentWord(word);
+    // Use a custom event to broadcast the current word to parent components
+    const event = new CustomEvent('word-changed', { 
+      detail: { word }
+    });
+    window.dispatchEvent(event);
+  }, []);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
@@ -149,23 +160,67 @@ export function AudioPlayer({
   
   // Set up event handlers when audioUrl changes
   useEffect(() => {
-    if (!audioRef.current || !audioUrl) return;
+    if (!audioRef.current || !audioUrl || !text) return;
     
     const audio = audioRef.current;
     
     const handlePlay = () => {
       console.log("[AudioPlayer] Playback started");
       if (onStart) onStart();
+      
+      // Set up word-by-word tracking
+      // Split text into words
+      const words = text.split(/\s+/);
+      
+      // Get audio duration (when available)
+      const audioDuration = audio.duration || 5; // fallback to 5 seconds if duration not available yet
+      
+      // Calculate interval based on words and duration
+      const wordInterval = (audioDuration * 1000) / Math.max(words.length, 1);
+      
+      console.log(`[AudioPlayer] Word timing: ${wordInterval}ms per word (${words.length} words in ${audioDuration}s)`);
+      
+      // Set up word update loop
+      let wordIndex = -1;
+      const wordTimerId = setInterval(() => {
+        wordIndex++;
+        
+        // Clear interval when we're done with words
+        if (wordIndex >= words.length) {
+          clearInterval(wordTimerId);
+          updateGlobalWord(''); // Clear the word
+          return;
+        }
+        
+        // Update current word and dispatch event
+        const currentWord = words[wordIndex];
+        console.log(`[AudioPlayer] Current word (${wordIndex+1}/${words.length}): ${currentWord}`);
+        updateGlobalWord(currentWord);
+        
+      }, wordInterval);
+      
+      // Clean up on audio ended
+      audio.addEventListener('ended', () => {
+        clearInterval(wordTimerId);
+        updateGlobalWord('');
+      }, { once: true });
+      
+      // Clean up on audio pause
+      audio.addEventListener('pause', () => {
+        clearInterval(wordTimerId);
+      }, { once: true });
     };
     
     const handleEnded = () => {
       console.log("[AudioPlayer] Playback ended");
       if (onEnd) onEnd();
+      updateGlobalWord(''); // Make sure to clear the word
     };
     
     const handleError = (e: ErrorEvent) => {
       console.error("[AudioPlayer] Playback error:", e);
       setError("Error playing audio");
+      updateGlobalWord(''); // Clear the word on error
     };
     
     // Add event listeners
@@ -179,7 +234,7 @@ export function AudioPlayer({
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError as EventListener);
     };
-  }, [audioUrl, onStart, onEnd]);
+  }, [audioUrl, onStart, onEnd, text, updateGlobalWord]);
   
   // Function to play audio directly (for user-initiated plays)
   const playAudio = useCallback(() => {

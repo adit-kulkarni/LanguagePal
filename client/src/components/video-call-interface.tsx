@@ -71,6 +71,29 @@ export function VideoCallInterface({
     speechService.configureSilenceDetection(true, 1500); // 1.5 seconds of silence to auto-stop
     speechService.setFallbackMode(true); // Enable fallback between modes if one fails
   }, [recognitionMode]);
+  
+  // Listen for word update events from AudioPlayer components
+  React.useEffect(() => {
+    const handleWordChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ word: string }>;
+      console.log("[VideoCallInterface] Word changed:", customEvent.detail.word);
+      
+      // Update the current word from the audio player
+      if (customEvent.detail.word) {
+        // This will make the subtitles visible
+        setCurrentWord(customEvent.detail.word);
+      } else {
+        // Clear word when audio is done
+        setCurrentWord("");
+      }
+    };
+    
+    window.addEventListener('word-changed', handleWordChange);
+    
+    return () => {
+      window.removeEventListener('word-changed', handleWordChange);
+    };
+  }, []);
 
   // Start recording when teacher stops speaking (after delay if set)
   React.useEffect(() => {

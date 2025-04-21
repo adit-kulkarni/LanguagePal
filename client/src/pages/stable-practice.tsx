@@ -198,7 +198,7 @@ export default function StablePractice() {
       
       // Reset active message states
       setActiveMessage(null);
-      setActiveTeacherMessage(null);
+      setActiveTeacherMessage("");
       
       // Auto-activate the microphone after a short delay if enabled
       if (FEATURE_FLAGS.ENABLE_AUTO_SPEECH) {
