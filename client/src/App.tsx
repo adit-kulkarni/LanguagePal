@@ -24,7 +24,7 @@ function App() {
   return (
     <div className="container">
       <header className="header">
-        <h1>Spanish Language Learning - Audio Test</h1>
+        <h1>Spanish Language Learning - Updated Test</h1>
       </header>
 
       <main>
