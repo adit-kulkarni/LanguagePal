@@ -33,10 +33,10 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
         if (onEnd) onEnd();
       };
       
-      const handlePlayRequest = (event: Event) => {
+      const handleDirectPlayRequest = (event: Event) => {
         const customEvent = event as CustomEvent;
         if (customEvent.detail?.id === id) {
-          console.log('[DirectAudioPlayer] Received play request for ID:', id);
+          console.log('[DirectAudioPlayer] Received direct play request for ID:', id);
           if (audioRef.current) {
             audioRef.current.play().catch(err => {
               console.error('[DirectAudioPlayer] Play request error:', err);
@@ -47,14 +47,40 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
         }
       };
       
+      // Handle play-teacher-audio event from practice.tsx
+      const handleTeacherAudioRequest = (event: Event) => {
+        const customEvent = event as CustomEvent<{message: string}>;
+        console.log('[DirectAudioPlayer] Received teacher audio play request:', 
+          customEvent.detail?.message ? customEvent.detail.message.substring(0, 20) + '...' : 'empty');
+          
+        // Make sure the text matches what we have
+        if (customEvent.detail?.message && text === customEvent.detail.message) {
+          console.log('[DirectAudioPlayer] Playing teacher audio via event');
+          // Call our internal play method via ref
+          if (ref && 'current' in ref && ref.current) {
+            (ref.current as {play: () => void}).play();
+          } else if (audioRef.current) {
+            // Fallback if ref method isn't accessible
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(err => {
+              console.error('[DirectAudioPlayer] Teacher audio play error:', err);
+              setError('Failed to play teacher audio');
+              if (onEnd) onEnd();
+            });
+          }
+        }
+      };
+      
       // Add event listeners
-      window.addEventListener('directAudioPlayerPlay', handlePlayRequest);
+      window.addEventListener('directAudioPlayerPlay', handleDirectPlayRequest);
+      window.addEventListener('play-teacher-audio', handleTeacherAudioRequest);
       
       // Clean up
       return () => {
-        window.removeEventListener('directAudioPlayerPlay', handlePlayRequest);
+        window.removeEventListener('directAudioPlayerPlay', handleDirectPlayRequest);
+        window.removeEventListener('play-teacher-audio', handleTeacherAudioRequest);
       };
-    }, [id, onEnd]);
+    }, [id, onEnd, text, ref]);
     
     // Load the audio when the text changes
     useEffect(() => {
