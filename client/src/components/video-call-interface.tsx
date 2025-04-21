@@ -2,7 +2,7 @@ import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
-import { Mic, MicOff, Video, VideoOff, X, Clock, Settings, Loader2 } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, X, Clock, Settings, Loader2, Volume2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { speechService } from "@/lib/speech";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { SpeechInput } from "@/components/speech-input";
+import { AudioPlayer } from "@/components/audio-player";
 import {
   Popover,
   PopoverContent,
@@ -200,7 +201,26 @@ export function VideoCallInterface({
         <div className="flex flex-col h-full">
           {/* Teacher section */}
           <div className="flex-1 flex items-center justify-center bg-accent/10 p-4 relative overflow-hidden">
-            <div className="absolute right-2 top-2">
+            <div className="absolute right-2 top-2 flex gap-2">
+              {teacherMessage && (
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="rounded-full h-8 w-8 bg-white/90"
+                  onClick={() => {
+                    // This creates a manual trigger for playing audio
+                    console.log("Manual audio trigger clicked");
+                    // The hidden AudioPlayer below will handle this
+                    const event = new CustomEvent('play-teacher-audio', {
+                      detail: { message: teacherMessage }
+                    });
+                    window.dispatchEvent(event);
+                  }}
+                >
+                  <Volume2 className="h-4 w-4" />
+                </Button>
+              )}
+              
               <DialogClose asChild>
                 <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
                   <X className="h-4 w-4" />
@@ -232,8 +252,32 @@ export function VideoCallInterface({
               {!isSpeaking && teacherMessage ? (
                 <div className="text-center mt-4 max-w-md px-4">
                   <p className="text-lg">{teacherMessage}</p>
+                  
+                  {/* Add direct audio player for teacher's messages */}
+                  <div className="mt-2 flex justify-center">
+                    <AudioPlayer 
+                      text={teacherMessage}
+                      voice="nova"
+                      onStart={() => console.log("Teacher audio started playing")}
+                      onEnd={() => console.log("Teacher audio finished playing")}
+                    />
+                  </div>
                 </div>
               ) : null}
+              
+              {/* Add hidden audio player for both auto-play and manual triggers */}
+              {teacherMessage && (
+                <div className="hidden">
+                  <AudioPlayer 
+                    text={teacherMessage}
+                    voice="nova"
+                    autoPlay={isSpeaking}
+                    listenToEvents={true}
+                    onStart={() => console.log("Teacher audio started playing")}
+                    onEnd={() => console.log("Teacher audio finished playing")}
+                  />
+                </div>
+              )}
             </div>
           </div>
           
