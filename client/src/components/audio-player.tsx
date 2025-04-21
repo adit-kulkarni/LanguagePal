@@ -1,5 +1,35 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
+/**
+ * Simple audio format detection based on header bytes
+ * This helps ensure we use the correct MIME type for the audio data
+ */
+function detectAudioFormat(bytes: Uint8Array): string {
+  // Check for MP3 header (usually starts with ID3 or 0xFF 0xFB)
+  if (
+    (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) || // "ID3"
+    (bytes[0] === 0xFF && (bytes[1] === 0xFB || bytes[1] === 0xF3 || bytes[1] === 0xF2))
+  ) {
+    return 'mp3';
+  }
+  
+  // Check for WAV header "RIFF" followed by "WAVE"
+  if (
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+    bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45
+  ) {
+    return 'wav';
+  }
+  
+  // Check for Ogg header "OggS"
+  if (bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+    return 'ogg';
+  }
+  
+  // Default to mp3 if unknown
+  return 'mp3';
+}
+
 interface AudioPlayerProps {
   text: string | null;
   voice?: string;
@@ -60,8 +90,28 @@ export function AudioPlayer({
         const audioData = await response.arrayBuffer();
         console.log("[AudioPlayer] Received audio data:", audioData.byteLength, "bytes");
         
-        const blob = new Blob([audioData], { type: 'audio/mpeg' });
+        if (audioData.byteLength === 0) {
+          throw new Error("Received empty audio data");
+        }
+        
+        // Check if we get audio headers at the beginning of the file
+        const firstBytes = new Uint8Array(audioData.slice(0, Math.min(20, audioData.byteLength)));
+        console.log("[AudioPlayer] First bytes of audio data:", Array.from(firstBytes).map(b => b.toString(16)).join(' '));
+        
+        // Try to detect audio format from first bytes
+        const detectedFormat = detectAudioFormat(firstBytes);
+        console.log("[AudioPlayer] Detected audio format:", detectedFormat);
+        
+        // Use the correct MIME type based on detection, fallback to audio/mpeg
+        const mimeType = detectedFormat === 'mp3' ? 'audio/mpeg' : 
+                          detectedFormat === 'wav' ? 'audio/wav' : 
+                          detectedFormat === 'ogg' ? 'audio/ogg' : 'audio/mpeg';
+        
+        console.log("[AudioPlayer] Using MIME type:", mimeType);
+        const blob = new Blob([audioData], { type: mimeType });
         const url = URL.createObjectURL(blob);
+        
+        console.log("[AudioPlayer] Created blob URL:", url);
         
         // Set the URL for the audio element
         setAudioUrl(url);
@@ -175,6 +225,9 @@ export function AudioPlayer({
           src={audioUrl}
           preload="auto"
           controls={false}
+          onLoadedData={() => console.log("[AudioPlayer] Audio loaded successfully")}
+          onCanPlay={() => console.log("[AudioPlayer] Audio can play")}
+          onPlaying={() => console.log("[AudioPlayer] Audio is playing")}
         />
       )}
       
@@ -184,13 +237,34 @@ export function AudioPlayer({
         </div>
       )}
       
+      {isLoading && (
+        <div className="text-blue-500 text-sm mt-1 animate-pulse">
+          Cargando audio...
+        </div>
+      )}
+      
       {(text && !autoPlay) && (
         <button
           onClick={playAudio}
           disabled={isLoading || !audioUrl}
-          className="mt-2 px-3 py-1 bg-primary text-white rounded hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="mt-2 px-3 py-1 bg-primary text-white rounded hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center gap-1"
         >
-          {isLoading ? 'Loading...' : 'Play Audio'}
+          {isLoading ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Cargando...
+            </>
+          ) : (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              Reproducir
+            </>
+          )}
         </button>
       )}
     </div>

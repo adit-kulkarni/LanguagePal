@@ -197,7 +197,11 @@ export function VideoCallInterface({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[90%] md:max-w-[85%] lg:max-w-[75%] h-[85vh] max-h-[85vh] p-0 border-none gap-0 overflow-hidden">
+      <DialogContent 
+        className="sm:max-w-[90%] md:max-w-[85%] lg:max-w-[75%] h-[85vh] max-h-[85vh] p-0 border-none gap-0 overflow-hidden"
+        aria-describedby="video-call-description"
+      >
+        <div id="video-call-description" className="sr-only">Video call interface for language practice with a virtual teacher</div>
         <div className="flex flex-col h-full">
           {/* Teacher section */}
           <div className="flex-1 flex items-center justify-center bg-accent/10 p-4 relative overflow-hidden">
