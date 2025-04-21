@@ -14,14 +14,16 @@ interface DirectAudioPlayerProps {
  * A simplified direct audio player based on our working test component
  * This component handles direct audio loading and playback without excess complexity
  */
-export function DirectAudioPlayer({
-  text,
-  voice = 'nova',
-  onStart,
-  onEnd,
-  autoPlay = false,
-  onWordChange
-}: DirectAudioPlayerProps) {
+export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudioPlayerProps>(
+  function DirectAudioPlayer({
+    text,
+    voice = 'nova',
+    onStart,
+    onEnd,
+    autoPlay = false,
+    onWordChange,
+    id
+  }, ref) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -183,24 +185,65 @@ export function DirectAudioPlayer({
   // Play function for manual play button
   const playAudio = useCallback(() => {
     if (audioRef.current && audioUrl) {
+      console.log("[DirectAudioPlayer] Manual play triggered");
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(e => {
         console.error("[DirectAudioPlayer] Play error:", e);
         setError("Error playing audio");
       });
+    } else {
+      console.warn("[DirectAudioPlayer] Cannot play - audio not ready", {audioRef: !!audioRef.current, audioUrl});
     }
   }, [audioUrl]);
+  
+  // Expose play method to parent components via imperative handle
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      play: playAudio
+    }),
+    [playAudio]
+  );
+  
+  // Listen for global play requests - this allows for external control
+  useEffect(() => {
+    // Set up global event listener for external play trigger
+    const handlePlayRequest = (event: Event) => {
+      const customEvent = event as CustomEvent<{ text: string }>;
+      // Only play if this component has matching text
+      if (text && customEvent.detail.text === text) {
+        console.log("[DirectAudioPlayer] Received external play request");
+        playAudio();
+      }
+    };
+    
+    window.addEventListener('request-audio-playback', handlePlayRequest);
+    
+    return () => {
+      window.removeEventListener('request-audio-playback', handlePlayRequest);
+    };
+  }, [text, playAudio]);
   
   return (
     <div>
       {audioUrl && (
         <audio
+          id={id} // Add ID for direct reference
           ref={audioRef}
           src={audioUrl}
           preload="auto"
           controls={false}
           onLoadedData={() => console.log("[DirectAudioPlayer] Audio loaded successfully")}
-          onCanPlay={() => console.log("[DirectAudioPlayer] Audio can play")}
+          onCanPlay={() => {
+            console.log("[DirectAudioPlayer] Audio can play");
+            // Try immediate play on canplay event if auto play is enabled
+            if (autoPlay && audioRef.current) {
+              console.log("[DirectAudioPlayer] Attempting play on canplay event");
+              audioRef.current.play().catch(err => 
+                console.log("[DirectAudioPlayer] Couldn't autoplay on canplay:", err.message)
+              );
+            }
+          }}
         />
       )}
       
@@ -231,4 +274,4 @@ export function DirectAudioPlayer({
       )}
     </div>
   );
-}
+});
