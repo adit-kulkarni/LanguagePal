@@ -345,23 +345,25 @@ export default function StablePractice() {
   
   return (
     <div className="h-screen overflow-hidden flex flex-col md:flex-row relative">
-      {/* Welcome Message Button */}
-      {showWelcomeButton && messages.length > 0 && messages[0].type === "teacher" && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-2xl max-w-md mx-auto text-center">
-            <h2 className="text-2xl font-bold mb-4">¡Bienvenido a la Práctica de Español!</h2>
-            <p className="mb-6 text-gray-600">Haga clic en el botón para comenzar la conversación con la profesora</p>
-            <Button 
-              onClick={playWelcomeMessage}
-              size="lg"
-              className="w-full py-6 text-lg flex items-center justify-center gap-2 animate-pulse"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-              </svg>
-              Comenzar Conversación
-            </Button>
-          </div>
+      {/* Large Welcome Banner */}
+      {messages.length > 0 && (
+        <div className="absolute top-0 inset-x-0 bg-gradient-to-r from-blue-600 to-blue-400 text-white p-3 z-50 text-center">
+          <p className="text-lg">Welcome to Spanish Practice! Audio not playing?</p>
+          <Button 
+            onClick={() => {
+              if (messages.length > 0 && messages[0].type === "teacher") {
+                console.log("Playing welcome message manually");
+                speak(messages[0].content, messages[0].id);
+              }
+            }}
+            variant="secondary"
+            className="mt-2 animate-pulse"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            Play Welcome Message
+          </Button>
         </div>
       )}
       {/* Mobile header with menu button */}

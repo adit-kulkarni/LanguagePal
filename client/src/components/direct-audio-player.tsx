@@ -7,6 +7,7 @@ interface DirectAudioPlayerProps {
   onEnd?: () => void;
   autoPlay?: boolean;
   onWordChange?: (word: string) => void;
+  id?: string; // Add an optional ID for direct DOM access
 }
 
 /**

@@ -310,12 +310,43 @@ export function VideoCallInterface({
                 <div className="text-center mt-4 max-w-md px-4">
                   <p className="text-lg">{teacherMessage}</p>
                   
-                  {/* Add direct audio player for teacher's messages */}
-                  <div className="mt-2 flex justify-center">
+                  {/* Add manual play button */}
+                  <div className="mt-4 flex justify-center">
+                    <Button 
+                      variant="default" 
+                      size="lg"
+                      className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 animate-pulse"
+                      onClick={() => {
+                        // Create and play audio manually
+                        if (teacherMessage) {
+                          console.log("Playing teacher message manually via button click");
+                          // Dispatch a custom event to request audio playback
+                          const playbackEvent = new CustomEvent('request-audio-playback', {
+                            detail: { text: teacherMessage }
+                          });
+                          window.dispatchEvent(playbackEvent);
+                          
+                          // Also trigger the hidden player
+                          const hiddenPlayer = document.getElementById('hidden-audio-player') as HTMLAudioElement;
+                          if (hiddenPlayer) {
+                            hiddenPlayer.play().catch(e => console.error("Error playing hidden audio:", e));
+                          }
+                        }
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                      </svg>
+                      Play Audio Message
+                    </Button>
+                  </div>
+                  
+                  {/* Add direct audio player for teacher's messages (hidden but always present) */}
+                  <div className="mt-2 hidden">
                     <DirectAudioPlayer 
                       text={teacherMessage}
                       voice="nova"
-                      autoPlay={true}
+                      autoPlay={false} 
                       onStart={() => console.log("Teacher audio started playing from visible player")}
                       onEnd={() => console.log("Teacher audio finished playing from visible player")}
                       onWordChange={(word) => {
@@ -331,13 +362,13 @@ export function VideoCallInterface({
                 </div>
               ) : null}
               
-              {/* Always include a backup DirectAudioPlayer */}
+              {/* Always include a backup DirectAudioPlayer with an ID for direct access */}
               {teacherMessage && (
                 <div className="hidden">
                   <DirectAudioPlayer 
                     text={teacherMessage}
                     voice="nova"
-                    autoPlay={isSpeaking ? false : true}
+                    autoPlay={false}
                     onStart={() => {
                       console.log("Teacher audio started playing from hidden player");
                     }}
