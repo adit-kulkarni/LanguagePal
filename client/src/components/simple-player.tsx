@@ -297,15 +297,35 @@ export function setupSimplePlayerEvents() {
   
   // Listen for global play-teacher-audio events
   const handlePlayTeacherAudio = (event: Event) => {
-    const customEvent = event as CustomEvent<{ message: string }>;
+    const customEvent = event as CustomEvent<{ message: string, preferredPlayer?: string }>;
     console.log("[SimplePlayerEvents] Received play-teacher-audio event");
     
     if (customEvent.detail?.message) {
       console.log("[SimplePlayerEvents] Dispatching to directAudioPlayerPlay handlers");
-      // Forward to our normal directAudioPlayerPlay event with ID
-      window.dispatchEvent(new CustomEvent('directAudioPlayerPlay', {
-        detail: { id: 'simple-audio-player' }
-      }));
+      
+      // Determine which player to use based on preference or use both for redundancy
+      const preferredPlayer = customEvent.detail.preferredPlayer || 'all';
+      
+      if (preferredPlayer === 'simple' || preferredPlayer === 'all') {
+        // Use the SimplePlayer
+        window.dispatchEvent(new CustomEvent('directAudioPlayerPlay', {
+          detail: { id: 'simple-audio-player' }
+        }));
+      }
+      
+      if (preferredPlayer === 'direct' || preferredPlayer === 'all') {
+        // Try both visible and hidden DirectAudioPlayer components
+        window.dispatchEvent(new CustomEvent('directAudioPlayerPlay', {
+          detail: { id: 'visible-audio-player' }
+        }));
+        
+        // Small delay before trying the hidden player to prevent audio overlap
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('directAudioPlayerPlay', {
+            detail: { id: 'hidden-audio-player' }
+          }));
+        }, 100);
+      }
     }
   };
   
