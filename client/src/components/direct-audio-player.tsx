@@ -37,12 +37,35 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
         const customEvent = event as CustomEvent;
         if (customEvent.detail?.id === id) {
           console.log('[DirectAudioPlayer] Received play request for ID:', id);
+          
+          // Set our playback flag to prevent cleanup during playback
+          isPlayingRef.current = true;
+          
           if (audioRef.current) {
-            audioRef.current.play().catch(err => {
-              console.error('[DirectAudioPlayer] Play request error:', err);
-              setError('Failed to play audio');
-              if (onEnd) onEnd();
-            });
+            // Reset to beginning if needed
+            if (audioRef.current.currentTime > 0) {
+              console.log('[DirectAudioPlayer] Resetting audio to beginning before playing');
+              audioRef.current.currentTime = 0;
+              // Clear the last word data to ensure we start fresh
+              delete audioRef.current.dataset.lastWord;
+            }
+            
+            // First ensure audio is loaded
+            audioRef.current.load();
+            
+            // Small delay to ensure audio is ready after loading
+            setTimeout(() => {
+              if (audioRef.current) {
+                audioRef.current.play().catch(err => {
+                  console.error('[DirectAudioPlayer] Play request error:', err);
+                  isPlayingRef.current = false;
+                  setError('Failed to play audio');
+                  if (onEnd) onEnd();
+                });
+              }
+            }, 50);
+          } else {
+            console.error('[DirectAudioPlayer] Cannot play - audio element not available for ID:', id);
           }
         }
       };
