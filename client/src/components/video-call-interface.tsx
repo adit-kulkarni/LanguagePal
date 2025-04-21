@@ -11,6 +11,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { SpeechInput } from "@/components/speech-input";
 import { AudioPlayer } from "@/components/audio-player";
+import { DirectAudioPlayer } from "@/components/direct-audio-player";
 import {
   Popover,
   PopoverContent,
@@ -311,30 +312,45 @@ export function VideoCallInterface({
                   
                   {/* Add direct audio player for teacher's messages */}
                   <div className="mt-2 flex justify-center">
-                    <AudioPlayer 
+                    <DirectAudioPlayer 
                       text={teacherMessage}
                       voice="nova"
                       autoPlay={true}
                       onStart={() => console.log("Teacher audio started playing from visible player")}
                       onEnd={() => console.log("Teacher audio finished playing from visible player")}
+                      onWordChange={(word) => {
+                        console.log("Word changed in visible player:", word);
+                        // Dispatch word change event
+                        const wordEvent = new CustomEvent('word-changed', {
+                          detail: { word }
+                        });
+                        window.dispatchEvent(wordEvent);
+                      }}
                     />
                   </div>
                 </div>
               ) : null}
               
-              {/* Always include an AudioPlayer even when speaking */}
+              {/* Always include a backup DirectAudioPlayer */}
               {teacherMessage && (
-                <div className={isSpeaking ? "hidden" : ""}>
-                  <AudioPlayer 
+                <div className="hidden">
+                  <DirectAudioPlayer 
                     text={teacherMessage}
                     voice="nova"
-                    autoPlay={true}
-                    listenToEvents={true}
+                    autoPlay={isSpeaking ? false : true}
                     onStart={() => {
-                      console.log("Teacher audio started playing from main player");
+                      console.log("Teacher audio started playing from hidden player");
                     }}
                     onEnd={() => {
-                      console.log("Teacher audio finished playing from main player");
+                      console.log("Teacher audio finished playing from hidden player");
+                    }}
+                    onWordChange={(word) => {
+                      console.log("Word changed in hidden player:", word);
+                      // Dispatch word change event
+                      const wordEvent = new CustomEvent('word-changed', {
+                        detail: { word }
+                      });
+                      window.dispatchEvent(wordEvent);
                     }}
                   />
                 </div>
