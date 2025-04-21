@@ -78,14 +78,12 @@ export function VideoCallInterface({
       const customEvent = event as CustomEvent<{ word: string }>;
       console.log("[VideoCallInterface] Word changed:", customEvent.detail.word);
       
-      // Update the current word from the audio player
-      if (customEvent.detail.word) {
-        // This will make the subtitles visible
-        setCurrentWord(customEvent.detail.word);
-      } else {
-        // Clear word when audio is done
-        setCurrentWord("");
-      }
+      // Broadcast an update to the parent component via a custom event
+      // Instead of trying to directly update state in this component
+      const wordUpdateEvent = new CustomEvent('update-current-word', {
+        detail: { word: customEvent.detail.word }
+      });
+      window.dispatchEvent(wordUpdateEvent);
     };
     
     window.addEventListener('word-changed', handleWordChange);

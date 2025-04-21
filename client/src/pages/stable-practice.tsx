@@ -70,6 +70,21 @@ export default function StablePractice() {
   const isSpeaking = speech.isSpeaking;
   const isLoadingAudio = speech.isLoading;
   
+  // Listen for word update events from AudioPlayer components via VideoCallInterface
+  React.useEffect(() => {
+    const handleWordUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<{ word: string }>;
+      console.log("Word update received in parent:", customEvent.detail.word);
+      setCurrentWord(customEvent.detail.word);
+    };
+    
+    window.addEventListener('update-current-word', handleWordUpdate);
+    
+    return () => {
+      window.removeEventListener('update-current-word', handleWordUpdate);
+    };
+  }, []);
+  
   // Speech function
   const speak = React.useCallback((text: string, messageId: number) => {
     // Don't speak if already speaking
