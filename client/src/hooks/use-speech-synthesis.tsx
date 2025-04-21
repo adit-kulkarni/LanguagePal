@@ -213,9 +213,9 @@ export function useSpeechSynthesis({
         // Force the audio to load before playing
         audio.load();
         
-        // Add an explicit canplaythrough event to ensure the audio has loaded
-        audio.oncanplaythrough = () => {
-          console.log("🔈 Audio can play through, attempting playback");
+        // Define play attempt function we can reuse
+        const attemptPlayback = () => {
+          console.log("🔈 Attempting audio playback");
           try {
             const playPromise = audio.play();
             
@@ -227,18 +227,40 @@ export function useSpeechSynthesis({
                 // Auto-play may be blocked or other issues
                 console.error('🔈 Play promise rejected:', e);
                 
-                // Try adding a user gesture requirement notice
-                setError('Browser blocked auto-play. Click Play button instead.');
-                
                 // Show browser's policy reason if available
                 if (e.name === 'NotAllowedError') {
                   console.error('🔈 Browser blocked autoplay - requires user gesture');
+                  
+                  // Try other methods to trigger audio playback
+                  console.log('🔈 Trying alternative playback method...');
+                  
+                  // Create and dispatch a custom event for AudioPlayer components to listen to
+                  const customEvent = new CustomEvent('play-teacher-audio', {
+                    detail: { message: text }
+                  });
+                  window.dispatchEvent(customEvent);
+                  
+                  // Try one more direct play after a short delay
+                  setTimeout(() => {
+                    console.log('🔈 Trying final direct play attempt');
+                    audio.play().catch(e2 => {
+                      console.error('🔈 Final play attempt failed:', e2);
+                      setError('Please click Play manually');
+                      setIsLoading(false);
+                      
+                      // Don't fully clean up here, keep the current word tracking active
+                      if (speakTimerRef.current) {
+                        clearTimeout(speakTimerRef.current);
+                        speakTimerRef.current = null;
+                      }
+                    });
+                  }, 200);
                 } else {
                   console.error('🔈 Play error reason:', e.message);
+                  setError('Audio playback error');
+                  setIsLoading(false);
+                  cleanUp();
                 }
-                
-                setIsLoading(false);
-                cleanUp();
               });
             }
           } catch (e) {
@@ -249,24 +271,16 @@ export function useSpeechSynthesis({
           }
         };
         
+        // Add an explicit canplaythrough event to ensure the audio has loaded
+        audio.oncanplaythrough = attemptPlayback;
+        
         // Also add timeout in case canplaythrough never fires
         setTimeout(() => {
           if (isSpeaking && isLoading) {
-            console.error('🔈 Audio loading timeout - trying to play anyway');
-            try {
-              audio.play().catch(e => {
-                console.error('🔈 Timeout play attempt failed:', e);
-                setError('Audio loading timeout');
-                setIsLoading(false);
-                cleanUp();
-              });
-            } catch (e) {
-              console.error('🔈 Timeout play execution error:', e);
-              setIsLoading(false);
-              cleanUp();
-            }
+            console.log('🔈 Audio loading timeout - trying to play anyway');
+            attemptPlayback();
           }
-        }, 3000);
+        }, 1500);
         
       } catch (e) {
         console.error('🔈 Audio setup error:', e);

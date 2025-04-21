@@ -208,9 +208,9 @@ export function VideoCallInterface({
             <div className="absolute right-2 top-2 flex gap-2">
               {teacherMessage && (
                 <Button 
-                  variant="outline" 
+                  variant="default" 
                   size="icon" 
-                  className="rounded-full h-8 w-8 bg-white/90"
+                  className="rounded-full h-8 w-8 bg-primary hover:bg-primary/90 text-white shadow-md"
                   onClick={() => {
                     // This creates a manual trigger for playing audio
                     console.log("Manual audio trigger clicked");
@@ -219,6 +219,12 @@ export function VideoCallInterface({
                       detail: { message: teacherMessage }
                     });
                     window.dispatchEvent(event);
+                    
+                    // Show a toast to inform user
+                    toast({
+                      title: "Reproduciendo audio",
+                      description: "Escucha el mensaje de la profesora"
+                    });
                   }}
                 >
                   <Volume2 className="h-4 w-4" />
@@ -234,7 +240,7 @@ export function VideoCallInterface({
             
             <div className="flex flex-col items-center max-w-2xl mx-auto">
               <div className={cn(
-                "rounded-full p-6 transition-all duration-100 mb-4",
+                "rounded-full p-6 transition-all duration-100 mb-4 relative",
                 isSpeaking ? "bg-gradient-to-r from-blue-200 to-cyan-200" : ""
               )} style={{
                 transform: isSpeaking ? `scale(${1 + speakingIntensity * 0.01})` : 'scale(1)'
@@ -243,15 +249,40 @@ export function VideoCallInterface({
                   <AvatarImage src={teacherAvatarUrl} alt="Teacher" />
                   <AvatarFallback>👩‍🏫</AvatarFallback>
                 </Avatar>
+                
+                {/* Large play button overlay */}
+                {teacherMessage && !isSpeaking && (
+                  <div 
+                    className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                    onClick={() => {
+                      console.log("Avatar play trigger clicked");
+                      const event = new CustomEvent('play-teacher-audio', {
+                        detail: { message: teacherMessage }
+                      });
+                      window.dispatchEvent(event);
+                    }}
+                  >
+                    <div className="bg-primary/90 text-white rounded-full p-4 shadow-lg hover:bg-primary transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                      </svg>
+                    </div>
+                  </div>
+                )}
               </div>
               
-              {currentWord && isSpeaking && (
-                <div className="min-h-[60px] flex items-center">
-                  <Badge variant="secondary" className="text-xl px-6 py-3 bg-primary/90 text-white shadow-md">
+              {/* Word highlighting during speech - show even with blank currentWord */}
+              <div className="min-h-[60px] flex items-center justify-center">
+                {currentWord && isSpeaking ? (
+                  <Badge variant="secondary" className="text-xl px-6 py-3 bg-primary/90 text-white shadow-md animate-pulse">
                     {currentWord}
                   </Badge>
-                </div>
-              )}
+                ) : isSpeaking ? (
+                  <Badge variant="secondary" className="text-xl px-6 py-3 bg-primary/90 text-white shadow-md opacity-50">
+                    ...
+                  </Badge>
+                ) : null}
+              </div>
               
               {!isSpeaking && teacherMessage ? (
                 <div className="text-center mt-4 max-w-md px-4">
