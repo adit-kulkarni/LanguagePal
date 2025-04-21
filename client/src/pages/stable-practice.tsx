@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TeacherAvatar } from "@/components/teacher-avatar";
 import { VideoCallInterface } from "@/components/video-call-interface";
+import { SimplePlayer, setupSimplePlayerEvents } from "@/components/simple-player";
 import { FEATURE_FLAGS, MOCK_DATA, logFeatureState } from "@/lib/feature-flags";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSpeechSynthesis } from "@/hooks/use-speech-synthesis";
-import { Menu, X, ChevronLeft, ChevronRight, MicOff, Mic } from "lucide-react";
+import { Menu, X, ChevronLeft, ChevronRight, MicOff, Mic, Volume2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { openAIAudioService } from "@/lib/openai-audio";
@@ -274,15 +275,21 @@ export default function StablePractice() {
     }
   }, [messages, speak, setIsVideoCallOpen]);
   
-  // Auto-play welcome message on mount - only once when component first loads
+  // Set up simple player event handling and global controls
   React.useEffect(() => {
     logFeatureState();
+    console.log("Will play welcome message...");
+    
+    // Setup global audio controls for easier debugging
+    const cleanup = setupSimplePlayerEvents();
     
     // Just open dialog on initial load
     if (!hasPlayedWelcomeRef.current && messages.length > 0 && messages[0].type === "teacher") {
       console.log("Opening dialog for welcome message");
       setIsVideoCallOpen(true);
     }
+    
+    return cleanup;
   }, [messages, setIsVideoCallOpen]);
   
   // Mock handle submit with no API calls

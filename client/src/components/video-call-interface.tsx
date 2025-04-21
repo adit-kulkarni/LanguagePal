@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { SpeechInput } from "@/components/speech-input";
 import { AudioPlayer } from "@/components/audio-player";
 import { DirectAudioPlayer } from "@/components/direct-audio-player";
+import { SimplePlayer } from "@/components/simple-player";
 import {
   Popover,
   PopoverContent,
@@ -384,6 +385,23 @@ export function VideoCallInterface({
                       window.dispatchEvent(wordEvent);
                     }}
                   />
+                </div>
+              )}
+              
+              {/* Add SimplePlayer as a last resort solution */}
+              {teacherMessage && (
+                <div className="mt-4 text-center">
+                  <h3 className="text-lg font-medium mb-2">¿Problemas con el audio?</h3>
+                  <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
+                    <SimplePlayer 
+                      text={teacherMessage} 
+                      voice="nova"
+                      id="simple-audio-player"
+                    />
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Haz clic en el botón para escuchar el mensaje
+                  </p>
                 </div>
               )}
             </div>
