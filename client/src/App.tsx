@@ -20,6 +20,28 @@ function App() {
       alert('Failed to preload audio');
     }
   };
+  
+  // This highlights the current word being spoken in the original text
+  const renderTextWithHighlight = () => {
+    if (!text || !currentWord) return text;
+    
+    const words = text.split(' ');
+    return words.map((word, index) => (
+      <span 
+        key={index} 
+        style={{ 
+          color: word === currentWord ? '#0051a2' : 'inherit',
+          fontWeight: word === currentWord ? 'bold' : 'normal',
+          backgroundColor: word === currentWord ? '#e6f0ff' : 'transparent',
+          padding: word === currentWord ? '2px 4px' : '0',
+          borderRadius: '3px',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        {word}{' '}
+      </span>
+    ));
+  };
 
   return (
     <div className="container">
@@ -102,11 +124,21 @@ function App() {
             Play with Word Tracking
           </button>
           
-          {isPlaying && (
-            <div className="mt-4 p-2 bg-blue-100 rounded">
-              <p>Currently speaking: <strong>{currentWord}</strong></p>
-            </div>
-          )}
+          <div className="mt-4 p-3 bg-blue-100 rounded">
+            {isPlaying ? (
+              <>
+                <p className="mb-2">Status: <strong className="text-green-600">Speaking</strong></p>
+                <p>Current word: <strong className="text-blue-600">{currentWord || "..."}</strong></p>
+              </>
+            ) : (
+              <p>Status: <strong className="text-gray-600">Idle</strong> (Click "Play with Word Tracking" to start)</p>
+            )}
+          </div>
+          
+          <div className="mt-4 p-3 bg-yellow-50 rounded border border-yellow-200">
+            <h4 className="mb-2 font-bold">Text with word highlighting:</h4>
+            <p>{renderTextWithHighlight()}</p>
+          </div>
         </div>
       </main>
     </div>

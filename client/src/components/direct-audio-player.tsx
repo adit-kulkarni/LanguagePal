@@ -125,16 +125,28 @@ export const DirectAudioPlayer = React.forwardRef<{play: () => void}, DirectAudi
       };
       
       const handleTimeUpdate = () => {
-        // This is where we would implement word tracking
-        // For now, just a simple placeholder
+        // Improved word tracking with more frequent updates
         if (onWordChange && text) {
           const progress = audio.currentTime / audio.duration;
           const words = text.split(' ');
+          
+          // Calculate word index based on progress
           const wordIndex = Math.min(
             Math.floor(progress * words.length),
             words.length - 1
           );
-          onWordChange(words[wordIndex]);
+          
+          // Only update if the word has changed or it's the first update
+          const currentWord = words[wordIndex];
+          
+          // Store the last word in a data attribute on the audio element
+          const lastWord = audio.dataset.lastWord || '';
+          
+          if (currentWord !== lastWord) {
+            audio.dataset.lastWord = currentWord;
+            console.log('[DirectAudioPlayer] Word changed:', currentWord);
+            onWordChange(currentWord);
+          }
         }
       };
       
