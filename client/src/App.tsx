@@ -49,19 +49,19 @@ function App() {
   return (
     <div className="app-container">
       <Switch>
-        {/* Redirect the root to practice */}
+        {/* Redirect the root to stable-practice */}
         <Route path="/">
-          <Redirect to="/practice" />
+          <Redirect to="/stable-practice" />
         </Route>
         
-        {/* Original Practice page as the main page */}
-        <Route path="/practice">
-          <Practice />
-        </Route>
-        
-        {/* Stable Practice page for testing */}
+        {/* Stable Practice page as the main page */}
         <Route path="/stable-practice">
           <StablePractice />
+        </Route>
+        
+        {/* Original Practice page for reference */}
+        <Route path="/practice">
+          <Practice />
         </Route>
         
         {/* Audio test page with the original content */}
