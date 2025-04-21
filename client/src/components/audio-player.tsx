@@ -110,20 +110,27 @@ export function AudioPlayer({
         
         // Check if we get audio headers at the beginning of the file
         const firstBytes = new Uint8Array(audioData.slice(0, Math.min(20, audioData.byteLength)));
-        console.log("[AudioPlayer] First bytes of audio data:", Array.from(firstBytes).map(b => b.toString(16)).join(' '));
+        console.log("[AudioPlayer] First bytes of audio data:", Array.from(firstBytes).map(b => b.toString(16).padStart(2, '0')).join(' '));
         
         // Try to detect audio format from first bytes
         const detectedFormat = detectAudioFormat(firstBytes);
         console.log("[AudioPlayer] Detected audio format:", detectedFormat);
         
-        // Use the correct MIME type based on detection, fallback to audio/mpeg
-        const mimeType = detectedFormat === 'mp3' ? 'audio/mpeg' : 
-                          detectedFormat === 'wav' ? 'audio/wav' : 
-                          detectedFormat === 'ogg' ? 'audio/ogg' : 'audio/mpeg';
+        // ALWAYS use audio/mpeg for MP3 files from OpenAI
+        const mimeType = 'audio/mpeg';
         
         console.log("[AudioPlayer] Using MIME type:", mimeType);
+        
+        // Create blob with type assertion
         const blob = new Blob([audioData], { type: mimeType });
+        
+        // Create object URL
         const url = URL.createObjectURL(blob);
+        
+        // Verify that the URL was created successfully
+        if (!url) {
+          throw new Error("Failed to create blob URL");
+        }
         
         console.log("[AudioPlayer] Created blob URL:", url);
         

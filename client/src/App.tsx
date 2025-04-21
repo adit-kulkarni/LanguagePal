@@ -18,6 +18,7 @@ import Settings from "@/pages/settings";
 import Progress from "@/pages/progress";
 import NotFound from "@/pages/not-found";
 import TestPage from "@/pages/test-page";
+import AudioTest from "@/pages/audio-test";
 import { useEffect } from "react";
 
 console.log("🔵 App.tsx loaded successfully");
@@ -53,6 +54,10 @@ function Router() {
       
       <Route path="/speech">
         <SpeechTest />
+      </Route>
+      
+      <Route path="/audio-test">
+        <AudioTest />
       </Route>
       
       <Route path="/stable-practice">
