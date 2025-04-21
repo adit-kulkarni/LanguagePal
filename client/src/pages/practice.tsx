@@ -3,6 +3,7 @@ import * as ReactDOM from "react-dom";
 import { TeacherAvatar } from "@/components/teacher-avatar";
 import { SpeechInput } from "@/components/speech-input";
 import { VideoCallInterface } from "@/components/video-call-interface";
+import { DirectAudioPlayer } from "@/components/direct-audio-player"; // Import the DirectAudioPlayer component
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -79,10 +80,35 @@ export default function Practice() {
     return { openAIAudioService: require("@/lib/openai-audio").openAIAudioService };
   }, []);
   
-  // Reference to audio element for playing TTS audio
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  // Reference for improved DirectAudioPlayer
+  const audioPlayerRef = React.useRef<{play: () => void} | null>(null);
   
-  // Speak using OpenAI's TTS API
+  // Ref to track audio elements for cleanup
+  const audioElementsRef = React.useRef<HTMLAudioElement[]>([]);
+  
+  // State to track audio URLs for cleanup
+  const [audioBlobs, setAudioBlobs] = React.useState<string[]>([]);
+  
+  // Cleanup when component unmounts
+  React.useEffect(() => {
+    return () => {
+      // Cleanup any blob URLs on unmount
+      console.log("[Practice] Cleaning up all blob URLs on unmount:", audioBlobs.length);
+      audioBlobs.forEach(url => {
+        if (url) URL.revokeObjectURL(url);
+      });
+      
+      // Clear any audio elements that might be playing
+      audioElementsRef.current.forEach(audio => {
+        if (audio) {
+          audio.pause();
+          audio.src = '';
+        }
+      });
+    };
+  }, [audioBlobs]);
+  
+  // Speak using our improved DirectAudioPlayer
   const speak = React.useCallback((text: string, messageId?: number) => {
     // Reset current word and state
     setCurrentWord("");
@@ -99,120 +125,83 @@ export default function Practice() {
     
     // Open the video call interface
     setIsVideoCallOpen(true);
-
-    // Make sure any previous audio is stopped
-    if (audioRef.current) {
-      audioRef.current.pause();
-      if (audioRef.current.src) {
-        URL.revokeObjectURL(audioRef.current.src);
-      }
-    }
-    
-    // Set speaking to true immediately to show animation
-    setIsSpeaking(true);
-    
-    // Split the text into words for subtitle display
-    const words = text.split(/\s+/);
-    let wordIndex = 0;
-    
-    // Estimate how long each word should be displayed based on text length
-    // Assuming faster speech rate than browser's speech synthesis
-    const averageWordDuration = 200; // milliseconds per word for OpenAI TTS
-    const estimatedDuration = words.length * averageWordDuration;
-    const wordDuration = estimatedDuration / words.length;
-    
-    console.log(`Estimated speech duration: ${estimatedDuration}ms, ${words.length} words, ${wordDuration}ms per word`);
     
     // Use Nova voice by default (female Spanish speaker)
     const voice = 'nova';
     
-    // Generate speech using OpenAI API
-    openAIAudioService.textToSpeech(text, voice)
-      .then((audioUrl: string) => {
-        // Create audio element if it doesn't exist
-        if (!audioRef.current) {
-          audioRef.current = new Audio();
-        }
+    // Set speaking state to show animation immediately
+    setIsSpeaking(true);
+    
+    // Create a custom event to play the message in the DirectAudioPlayer
+    // This will trigger the play method on any direct audio player that has a matching ID
+    if (text) {
+      // Dispatch the play event to trigger playing on DirectAudioPlayer instances
+      console.log(`[Practice] Triggering play for DirectAudioPlayer with message: ${text.substring(0, 20)}...`);
+      
+      // Set up event listeners for word change events from the DirectAudioPlayer
+      const handleWordChange = (event: Event) => {
+        const customEvent = event as CustomEvent<{word: string}>;
+        const word = customEvent.detail.word;
+        setCurrentWord(word);
         
-        // Set up audio event handlers
-        audioRef.current.onplay = () => {
-          console.log("OpenAI TTS audio started playing");
-          setIsSpeaking(true);
-          
-          // Start displaying words with timing
-          const wordInterval = setInterval(() => {
-            if (wordIndex < words.length) {
-              const word = words[wordIndex];
-              setCurrentWord(word);
-              
-              // Update avatar animation
-              setSpeakingIntensity(1);
-              setTimeout(() => setSpeakingIntensity(0.5), 50);
-              setTimeout(() => setSpeakingIntensity(0.2), 100);
-              setTimeout(() => setSpeakingIntensity(0), 150);
-              
-              wordIndex++;
-            } else {
-              clearInterval(wordInterval);
-              // Ensure the last word stays visible until the audio ends
-            }
-          }, wordDuration);
-          
-          // Clean up interval when audio ends
-          audioRef.current!.onended = () => {
-            clearInterval(wordInterval);
-            console.log("OpenAI TTS audio finished");
-            setIsSpeaking(false);
-            setSpeakingIntensity(0);
-            setCurrentWord("");
-            setActiveMessage(null);
-            
-            // Clean up the audio URL
-            if (audioRef.current?.src) {
-              URL.revokeObjectURL(audioRef.current.src);
-              audioRef.current.src = "";
-            }
-          };
-        };
-        
-        // Set audio source and play
-        audioRef.current.src = audioUrl;
-        audioRef.current.play().catch(error => {
-          console.error("Error playing TTS audio:", error);
-          setIsSpeaking(false);
-          setSpeakingIntensity(0);
-          setCurrentWord("");
-          setActiveMessage(null);
-        });
-      })
-      .catch((error: Error) => {
-        console.error("Error generating TTS:", error);
+        // Update avatar animation intensity
+        setSpeakingIntensity(1);
+        setTimeout(() => setSpeakingIntensity(0.5), 50);
+        setTimeout(() => setSpeakingIntensity(0.2), 100);
+        setTimeout(() => setSpeakingIntensity(0), 150);
+      };
+      
+      // Clean up once audio ends
+      const handleAudioEnd = () => {
+        console.log("[Practice] Audio playback ended");
         setIsSpeaking(false);
         setSpeakingIntensity(0);
         setCurrentWord("");
         setActiveMessage(null);
         
-        // Fallback to browser's speech synthesis if OpenAI TTS fails
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'es-CO';
-        utterance.rate = 0.9;
-        window.speechSynthesis.speak(utterance);
-        
-        toast({
-          title: "Speech synthesis fallback",
-          description: "Using browser's built-in speech synthesis as a fallback.",
-          variant: "destructive"
-        });
+        // Remove event listeners
+        window.removeEventListener('word-changed', handleWordChange);
+        window.removeEventListener('audio-ended', handleAudioEnd);
+      };
+      
+      // Listen for word change events from DirectAudioPlayer
+      window.addEventListener('word-changed', handleWordChange);
+      
+      // Listen for audio end event
+      window.addEventListener('audio-ended', handleAudioEnd);
+      
+      // Custom event to trigger DirectAudioPlayer's play method
+      const playEvent = new CustomEvent('play-teacher-audio', {
+        detail: { message: text }
       });
+      window.dispatchEvent(playEvent);
+      
+      // If we have a direct reference to audioPlayerRef, use it as a backup
+      if (audioPlayerRef.current) {
+        setTimeout(() => {
+          if (audioPlayerRef.current) {
+            console.log("[Practice] Using direct audioPlayerRef.play() as backup");
+            audioPlayerRef.current.play();
+          }
+        }, 100);
+      }
+    }
     
     // Return a cleanup function
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        if (audioRef.current.src) {
-          URL.revokeObjectURL(audioRef.current.src);
-        }
-      }
+      // Clean up event listeners
+      window.removeEventListener('word-changed', (e: Event) => {
+        const customEvent = e as CustomEvent<{word: string}>;
+        setCurrentWord(customEvent.detail.word);
+      });
+      window.removeEventListener('audio-ended', () => {
+        setIsSpeaking(false);
+        setSpeakingIntensity(0);
+        setCurrentWord("");
+        setActiveMessage(null);
+      });
+      
+      // Reset states
       setIsSpeaking(false);
       setSpeakingIntensity(0);
       setCurrentWord("");
@@ -783,6 +772,37 @@ export default function Practice() {
             {isMobile && <div className="h-24" />}
           </div>
         )}
+      </div>
+      
+      {/* Hidden DirectAudioPlayer for improved speech synthesis */}
+      <div className="hidden">
+        <DirectAudioPlayer
+          ref={audioPlayerRef}
+          text={activeTeacherMessage}
+          voice="nova"
+          autoPlay={false}
+          onStart={() => {
+            console.log("[Practice] DirectAudioPlayer started playing");
+            setIsSpeaking(true);
+          }}
+          onEnd={() => {
+            console.log("[Practice] DirectAudioPlayer finished playing");
+            setIsSpeaking(false);
+            setSpeakingIntensity(0);
+            setCurrentWord("");
+            
+            // Dispatch audio ended event
+            const audioEndEvent = new CustomEvent('audio-ended');
+            window.dispatchEvent(audioEndEvent);
+          }}
+          onWordChange={(word) => {
+            // Dispatch word change event
+            const wordEvent = new CustomEvent('word-changed', {
+              detail: { word }
+            });
+            window.dispatchEvent(wordEvent);
+          }}
+        />
       </div>
     </div>
   );
