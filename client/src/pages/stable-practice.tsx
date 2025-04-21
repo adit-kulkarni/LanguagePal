@@ -424,8 +424,8 @@ export default function StablePractice() {
           {/* Greeting message */}
           <Card className="mx-4 md:mx-8 mt-2 md:mt-4 bg-accent/10">
             <CardContent className="p-3 md:p-4">
-              <p className="text-sm text-center text-muted-foreground">
-                Stable Practice Mode - Using {FEATURE_FLAGS.ENABLE_OPENAI_AUDIO ? 'OpenAI speech' : 'browser speech synthesis'} (Improved Audio)
+              <p className="text-sm text-center text-muted-foreground font-bold">
+                *** TEST CHANGE *** UNSTABLE AUDIO MODE *** TEST CHANGE ***
               </p>
             </CardContent>
           </Card>
