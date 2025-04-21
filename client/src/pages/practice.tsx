@@ -25,7 +25,6 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/components/ui/badge";
-import { openAIAudioService } from "@/lib/openai-audio";
 
 interface Message {
   id?: number;  
@@ -75,18 +74,15 @@ export default function Practice() {
   const [activeTeacherMessage, setActiveTeacherMessage] = React.useState<string>("");
   const isMobile = useIsMobile();
 
-  // Reference to openAIAudioService for text-to-speech functionality
+  // Import at the top of the file
+  const { openAIAudioService } = React.useMemo(() => {
+    return { openAIAudioService: require("@/lib/openai-audio").openAIAudioService };
+  }, []);
   
   // Reference to audio element for playing TTS audio
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   
   // Speak using OpenAI's TTS API
-  // Track if we're currently playing to prevent audio element cleanup during playback
-  const isPlayingRef = React.useRef(false);
-  
-  // Store all created blob URLs for proper cleanup
-  const blobUrlsRef = React.useRef<string[]>([]);
-  
   const speak = React.useCallback((text: string, messageId?: number) => {
     // Reset current word and state
     setCurrentWord("");
@@ -104,178 +100,119 @@ export default function Practice() {
     // Open the video call interface
     setIsVideoCallOpen(true);
 
-    // Only cleanup audio if not currently playing 
-    if (audioRef.current && !isPlayingRef.current) {
-      console.log('[Practice] Safe cleanup of previous audio (not playing)');
+    // Make sure any previous audio is stopped
+    if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.src = '';
-    } else if (isPlayingRef.current) {
-      console.log('[Practice] Skipping cleanup as audio is still playing');
-      return; // Don't interrupt currently playing audio
+      if (audioRef.current.src) {
+        URL.revokeObjectURL(audioRef.current.src);
+      }
     }
     
     // Set speaking to true immediately to show animation
     setIsSpeaking(true);
     
+    // Split the text into words for subtitle display
+    const words = text.split(/\s+/);
+    let wordIndex = 0;
+    
+    // Estimate how long each word should be displayed based on text length
+    // Assuming faster speech rate than browser's speech synthesis
+    const averageWordDuration = 200; // milliseconds per word for OpenAI TTS
+    const estimatedDuration = words.length * averageWordDuration;
+    const wordDuration = estimatedDuration / words.length;
+    
+    console.log(`Estimated speech duration: ${estimatedDuration}ms, ${words.length} words, ${wordDuration}ms per word`);
+    
     // Use Nova voice by default (female Spanish speaker)
     const voice = 'nova';
     
     // Generate speech using OpenAI API
-    console.log('[Practice] Generating speech for text:', text.substring(0, 20) + '...');
     openAIAudioService.textToSpeech(text, voice)
       .then((audioUrl: string) => {
-        // Track the blob URL for later cleanup
-        blobUrlsRef.current.push(audioUrl);
-        
-        // Skip recreating audio element if we're currently playing
-        if (isPlayingRef.current && audioRef.current) {
-          console.log('[Practice] Skipping audio element recreation during playback');
-          return;
-        }
-        
         // Create audio element if it doesn't exist
         if (!audioRef.current) {
           audioRef.current = new Audio();
         }
         
-        // Set up audio event handlers with improved word tracking
-        const audio = audioRef.current;
-        
-        // Add comprehensive event listeners
-        audio.onplay = () => {
-          console.log("[Practice] Audio playback started");
-          isPlayingRef.current = true;
+        // Set up audio event handlers
+        audioRef.current.onplay = () => {
+          console.log("OpenAI TTS audio started playing");
           setIsSpeaking(true);
-        };
-        
-        audio.onpause = () => {
-          console.log("[Practice] Audio playback paused");
-          // Only mark as not playing if we're at the end of the track
-          if (audio.currentTime >= audio.duration - 0.1) {
-            isPlayingRef.current = false;
-            setIsSpeaking(false);
-          }
-        };
-        
-        audio.onended = () => {
-          console.log("[Practice] Audio playback ended naturally");
-          isPlayingRef.current = false;
-          setIsSpeaking(false);
-          setSpeakingIntensity(0);
-          setCurrentWord("");
-          setActiveMessage(null);
-        };
-        
-        audio.ontimeupdate = () => {
-          // Word tracking with better timing based on audio progress
-          if (!text) return;
           
-          // Log time progression occasionally (not too verbose)
-          if (audio.currentTime % 1 < 0.1) { // Log approximately every second
-            console.log(`[Practice] Time update: ${audio.currentTime.toFixed(1)}/${audio.duration.toFixed(1)}`);
-          }
-          
-          const progress = audio.currentTime / (audio.duration || 1); // Prevent division by zero
-          const words = text.split(/\s+/);
-          
-          // Calculate word index based on progress with safety check
-          const wordIndex = Math.min(
-            Math.floor(progress * words.length),
-            words.length - 1
-          );
-          
-          // Ensure we're not at an invalid index
-          if (wordIndex >= 0 && wordIndex < words.length) {
-            const currentWord = words[wordIndex];
-            
-            // Store the last word in a data attribute on the audio element
-            const lastWord = audio.dataset.lastWord || '';
-            
-            if (currentWord !== lastWord) {
-              // Update last word
-              audio.dataset.lastWord = currentWord;
-              console.log('[Practice] Word changed:', currentWord, `(${wordIndex+1}/${words.length})`);
+          // Start displaying words with timing
+          const wordInterval = setInterval(() => {
+            if (wordIndex < words.length) {
+              const word = words[wordIndex];
+              setCurrentWord(word);
               
-              // Update UI
-              setCurrentWord(currentWord);
-              
-              // Update avatar animation 
+              // Update avatar animation
               setSpeakingIntensity(1);
               setTimeout(() => setSpeakingIntensity(0.5), 50);
               setTimeout(() => setSpeakingIntensity(0.2), 100);
               setTimeout(() => setSpeakingIntensity(0), 150);
+              
+              wordIndex++;
+            } else {
+              clearInterval(wordInterval);
+              // Ensure the last word stays visible until the audio ends
             }
-          }
+          }, wordDuration);
+          
+          // Clean up interval when audio ends
+          audioRef.current!.onended = () => {
+            clearInterval(wordInterval);
+            console.log("OpenAI TTS audio finished");
+            setIsSpeaking(false);
+            setSpeakingIntensity(0);
+            setCurrentWord("");
+            setActiveMessage(null);
+            
+            // Clean up the audio URL
+            if (audioRef.current?.src) {
+              URL.revokeObjectURL(audioRef.current.src);
+              audioRef.current.src = "";
+            }
+          };
         };
         
-        audio.onerror = (e) => {
-          console.error("[Practice] Audio element error event:", e);
-          isPlayingRef.current = false;
+        // Set audio source and play
+        audioRef.current.src = audioUrl;
+        audioRef.current.play().catch(error => {
+          console.error("Error playing TTS audio:", error);
           setIsSpeaking(false);
           setSpeakingIntensity(0);
           setCurrentWord("");
           setActiveMessage(null);
-        };
-        
-        // Set audio source and play with improved error handling
-        console.log('[Practice] Setting audio URL:', audioUrl);
-        audio.src = audioUrl;
-        audio.load(); // Ensure audio is fully loaded before playing
-        
-        // Small delay to ensure audio is ready before playing
-        setTimeout(() => {
-          if (audioRef.current) {
-            audioRef.current.play().catch(error => {
-              console.error("Error playing TTS audio:", error);
-              isPlayingRef.current = false;
-              setIsSpeaking(false);
-              setSpeakingIntensity(0);
-              setCurrentWord("");
-              setActiveMessage(null);
-              
-              // Fallback to the VideoCallInterface's SimplePlayer
-              window.dispatchEvent(new CustomEvent('play-teacher-audio', {
-                detail: { 
-                  message: text,
-                  preferredPlayer: 'simple'
-                }
-              }));
-            });
-          }
-        }, 100);
+        });
       })
       .catch((error: Error) => {
         console.error("Error generating TTS:", error);
-        isPlayingRef.current = false;
         setIsSpeaking(false);
         setSpeakingIntensity(0);
         setCurrentWord("");
         setActiveMessage(null);
         
-        // Try the VideoCallInterface's SimplePlayer
-        window.dispatchEvent(new CustomEvent('play-teacher-audio', {
-          detail: { 
-            message: text,
-            preferredPlayer: 'simple'
-          }
-        }));
+        // Fallback to browser's speech synthesis if OpenAI TTS fails
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'es-CO';
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
         
         toast({
           title: "Speech synthesis fallback",
-          description: "Using simple player as a fallback",
+          description: "Using browser's built-in speech synthesis as a fallback.",
           variant: "destructive"
         });
       });
     
-    // Return a cleanup function that respects current playback
+    // Return a cleanup function
     return () => {
-      // Only clean up if we're not playing anymore
-      if (!isPlayingRef.current && audioRef.current) {
-        console.log('[Practice] Safe cleanup of audio element (not playing in cleanup)');
+      if (audioRef.current) {
         audioRef.current.pause();
-        audioRef.current.src = '';
+        if (audioRef.current.src) {
+          URL.revokeObjectURL(audioRef.current.src);
+        }
       }
-      
       setIsSpeaking(false);
       setSpeakingIntensity(0);
       setCurrentWord("");
@@ -300,80 +237,6 @@ export default function Practice() {
   React.useEffect(() => {
     console.log("[HMR TEST]", new Date().toISOString(), "- Testing hot module replacement");
     // Initial welcome message will be displayed but not spoken automatically
-  }, []);
-  
-  // Add an event listener for the SimplePlayer component to coordinate playback
-  React.useEffect(() => {
-    const handlePlayEvent = (event: Event) => {
-      const customEvent = event as CustomEvent<{
-        message: string;
-        preferredPlayer?: string; 
-      }>;
-      
-      if (customEvent.detail?.message) {
-        console.log('[Practice] Received play event from external component:', 
-          customEvent.detail.message.substring(0, 20) + '...');
-        
-        // Don't call speak() directly to avoid duplicate audio
-        // Just update UI state if we're not already speaking
-        if (!isPlayingRef.current) {
-          setIsSpeaking(true);
-          setCurrentWord(customEvent.detail.message.split(/\s+/)[0] || '');
-        }
-      }
-    };
-    
-    window.addEventListener('play-teacher-audio', handlePlayEvent);
-    
-    return () => {
-      window.removeEventListener('play-teacher-audio', handlePlayEvent);
-    };
-  }, []);
-  
-  // Clean up blob URLs when component unmounts to prevent memory leaks
-  React.useEffect(() => {
-    return () => {
-      console.log('[Practice] Cleaning up all blob URLs on unmount:', blobUrlsRef.current.length);
-      // Revoke all stored blob URLs
-      blobUrlsRef.current.forEach(url => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch (err) {
-          console.error('[Practice] Error revoking blob URL:', err);
-        }
-      });
-      // Clear the array
-      blobUrlsRef.current = [];
-    };
-  }, []);
-  
-  // Periodically clean old blob URLs to prevent memory leaks
-  React.useEffect(() => {
-    // Clean URLs after 30 seconds to ensure they're not in use
-    const cleanupTimer = setInterval(() => {
-      if (blobUrlsRef.current.length > 5 && !isPlayingRef.current) {
-        // Keep the 5 most recently created URLs and clean up the rest
-        const urlsToKeep = blobUrlsRef.current.slice(-5);
-        const urlsToClean = blobUrlsRef.current.slice(0, -5);
-        
-        if (urlsToClean.length > 0) {
-          console.log(`[Practice] Cleaning ${urlsToClean.length} old blob URLs`);
-          
-          urlsToClean.forEach(url => {
-            try {
-              URL.revokeObjectURL(url);
-            } catch (err) {
-              console.error('[Practice] Error revoking blob URL:', err);
-            }
-          });
-          
-          // Update our reference to only keep recent URLs
-          blobUrlsRef.current = urlsToKeep;
-        }
-      }
-    }, 30000); // Check every 30 seconds
-    
-    return () => clearInterval(cleanupTimer);
   }, []);
   
   // WebSocket connection for receiving corrections

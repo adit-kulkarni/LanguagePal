@@ -347,8 +347,7 @@ export function VideoCallInterface({
                     <DirectAudioPlayer 
                       text={teacherMessage}
                       voice="nova"
-                      autoPlay={false}
-                      id="visible-audio-player" // Add ID for direct access 
+                      autoPlay={false} 
                       onStart={() => console.log("Teacher audio started playing from visible player")}
                       onEnd={() => console.log("Teacher audio finished playing from visible player")}
                       onWordChange={(word) => {
@@ -371,7 +370,6 @@ export function VideoCallInterface({
                     text={teacherMessage}
                     voice="nova"
                     autoPlay={false}
-                    id="hidden-audio-player" // Add ID for direct access
                     onStart={() => {
                       console.log("Teacher audio started playing from hidden player");
                     }}
@@ -399,14 +397,6 @@ export function VideoCallInterface({
                       text={teacherMessage} 
                       voice="nova"
                       id="simple-audio-player"
-                      onWordChange={(word) => {
-                        console.log("[VideoCallInterface] Word changed in SimplePlayer:", word);
-                        // Dispatch word change event to ensure parent components are notified
-                        const wordEvent = new CustomEvent('word-changed', {
-                          detail: { word }
-                        });
-                        window.dispatchEvent(wordEvent);
-                      }}
                     />
                   </div>
                   <p className="text-sm text-gray-500 mt-2">
