@@ -1,10 +1,12 @@
-import fs from "fs";
-import path from "path";
-import os from "os";
-import { v4 as uuidv4 } from "uuid";
 import OpenAI from "openai";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+import { v4 as uuidv4 } from "uuid";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 function getTempFilePath(prefix: string, extension: string): string {
   const tempDir = os.tmpdir();
@@ -20,10 +22,14 @@ function getTempFilePath(prefix: string, extension: string): string {
  */
 export async function generateSpeech(text: string, voice: string = 'nova'): Promise<Buffer> {
   try {
-    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+    console.log(`Generating speech for text: "${text.substring(0, 30)}..." with voice ${voice}`);
+    
+    const validVoices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+    const safeVoice = validVoices.includes(voice) ? voice : 'nova';
+
     const response = await openai.audio.speech.create({
-      model: "tts-1-hd",
-      voice: voice as "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer",
+      model: "tts-1",
+      voice: safeVoice as "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer",
       input: text,
     });
 
@@ -31,7 +37,7 @@ export async function generateSpeech(text: string, voice: string = 'nova'): Prom
     return buffer;
   } catch (error) {
     console.error("Error generating speech:", error);
-    throw error;
+    throw new Error(`Failed to generate speech: ${error.message}`);
   }
 }
 
@@ -43,19 +49,16 @@ export async function generateSpeech(text: string, voice: string = 'nova'): Prom
  */
 export async function transcribeSpeech(audioBuffer: Buffer, language: string = 'es'): Promise<string> {
   try {
-    const tempFilePath = getTempFilePath('speech', 'webm');
+    console.log(`Transcribing audio in language: ${language}`);
     
-    // Write buffer to temp file
+    // Save the buffer to a temporary file
+    const tempFilePath = getTempFilePath("transcribe", "mp3");
     fs.writeFileSync(tempFilePath, audioBuffer);
     
-    // Create a read stream for the file
-    const file = fs.createReadStream(tempFilePath);
-    
-    // Transcribe audio
     const transcription = await openai.audio.transcriptions.create({
-      file,
+      file: fs.createReadStream(tempFilePath),
       model: "whisper-1",
-      language,
+      language: language,
     });
     
     // Clean up temp file
@@ -64,6 +67,6 @@ export async function transcribeSpeech(audioBuffer: Buffer, language: string = '
     return transcription.text;
   } catch (error) {
     console.error("Error transcribing speech:", error);
-    throw error;
+    throw new Error(`Failed to transcribe speech: ${error.message}`);
   }
 }
