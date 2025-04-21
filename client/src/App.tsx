@@ -12,7 +12,7 @@ import Home from "@/pages/home";
 import Practice from "@/pages/practice";
 import SimplePractice from "@/pages/simple-practice";
 import SimpleVideoCall from "@/pages/simple-video";
-import StablePractice from "@/pages/stable-practice-fixed";
+import StablePractice from "@/pages/stable-practice-fixed-clean";
 import SpeechTest from "@/pages/speech-test";
 import Settings from "@/pages/settings";
 import Progress from "@/pages/progress";
