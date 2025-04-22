@@ -3,8 +3,6 @@ import * as ReactDOM from "react-dom";
 import { TeacherAvatar } from "@/components/teacher-avatar";
 import { SpeechInput } from "@/components/speech-input";
 import { VideoCallInterface } from "@/components/video-call-interface";
-import { DirectAudioPlayer } from "@/components/direct-audio-player"; // Import the DirectAudioPlayer component
-import { openAIAudioService } from "@/lib/openai-audio"; // Import openAIAudioService directly
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -76,38 +74,6 @@ export default function Practice() {
   const [activeTeacherMessage, setActiveTeacherMessage] = React.useState<string>("");
   const isMobile = useIsMobile();
 
-  // We're now importing openAIAudioService directly at the top of the file
-  // No need for useMemo or dynamic imports
-  
-  // Reference for improved DirectAudioPlayer
-  const audioPlayerRef = React.useRef<{play: () => void} | null>(null);
-  
-  // Ref to track audio elements for cleanup
-  const audioElementsRef = React.useRef<HTMLAudioElement[]>([]);
-  
-  // State to track audio URLs for cleanup
-  const [audioBlobs, setAudioBlobs] = React.useState<string[]>([]);
-  
-  // Cleanup when component unmounts
-  React.useEffect(() => {
-    return () => {
-      // Cleanup any blob URLs on unmount
-      console.log("[Practice] Cleaning up all blob URLs on unmount:", audioBlobs.length);
-      audioBlobs.forEach(url => {
-        if (url) URL.revokeObjectURL(url);
-      });
-      
-      // Clear any audio elements that might be playing
-      audioElementsRef.current.forEach(audio => {
-        if (audio) {
-          audio.pause();
-          audio.src = '';
-        }
-      });
-    };
-  }, [audioBlobs]);
-  
-  // Speak using our improved DirectAudioPlayer
   const speak = React.useCallback((text: string, messageId?: number) => {
     // Reset current word and state
     setCurrentWord("");
@@ -124,89 +90,104 @@ export default function Practice() {
     
     // Open the video call interface
     setIsVideoCallOpen(true);
+
+    // Cancel any previous speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-CO';
+    utterance.rate = 0.9;
+
+    utterance.onstart = () => {
+      console.log("Speech started");
+      setIsSpeaking(true);
+    };
     
-    // Use Nova voice by default (female Spanish speaker)
-    const voice = 'nova';
-    
-    // Set speaking state to show animation immediately
-    setIsSpeaking(true);
-    
-    // Create a custom event to play the message in the DirectAudioPlayer
-    // This will trigger the play method on any direct audio player that has a matching ID
-    if (text) {
-      // Dispatch the play event to trigger playing on DirectAudioPlayer instances
-      console.log(`[Practice] Triggering play for DirectAudioPlayer with message: ${text.substring(0, 20)}...`);
-      
-      // Set up event listeners for word change events from the DirectAudioPlayer
-      const handleWordChange = (event: Event) => {
-        const customEvent = event as CustomEvent<{word: string}>;
-        const word = customEvent.detail.word;
-        setCurrentWord(word);
-        
-        // Update avatar animation intensity
-        setSpeakingIntensity(1);
-        setTimeout(() => setSpeakingIntensity(0.5), 50);
-        setTimeout(() => setSpeakingIntensity(0.2), 100);
-        setTimeout(() => setSpeakingIntensity(0), 150);
-      };
-      
-      // Clean up once audio ends
-      const handleAudioEnd = () => {
-        console.log("[Practice] Audio playback ended");
-        setIsSpeaking(false);
-        setSpeakingIntensity(0);
-        setCurrentWord("");
-        setActiveMessage(null);
-        
-        // Remove event listeners
-        window.removeEventListener('word-changed', handleWordChange);
-        window.removeEventListener('audio-ended', handleAudioEnd);
-      };
-      
-      // Listen for word change events from DirectAudioPlayer
-      window.addEventListener('word-changed', handleWordChange);
-      
-      // Listen for audio end event
-      window.addEventListener('audio-ended', handleAudioEnd);
-      
-      // Custom event to trigger DirectAudioPlayer's play method
-      const playEvent = new CustomEvent('play-teacher-audio', {
-        detail: { message: text }
-      });
-      window.dispatchEvent(playEvent);
-      
-      // If we have a direct reference to audioPlayerRef, use it as a backup
-      if (audioPlayerRef.current) {
-        setTimeout(() => {
-          if (audioPlayerRef.current) {
-            console.log("[Practice] Using direct audioPlayerRef.play() as backup");
-            audioPlayerRef.current.play();
-          }
-        }, 100);
-      }
-    }
-    
-    // Return a cleanup function
-    return () => {
-      // Clean up event listeners
-      window.removeEventListener('word-changed', (e: Event) => {
-        const customEvent = e as CustomEvent<{word: string}>;
-        setCurrentWord(customEvent.detail.word);
-      });
-      window.removeEventListener('audio-ended', () => {
-        setIsSpeaking(false);
-        setSpeakingIntensity(0);
-        setCurrentWord("");
-        setActiveMessage(null);
-      });
-      
-      // Reset states
+    utterance.onend = () => {
+      console.log("Speech ended");
       setIsSpeaking(false);
       setSpeakingIntensity(0);
       setCurrentWord("");
       setActiveMessage(null);
     };
-  }, [messages, toast]);
+    
+    utterance.onerror = (event) => {
+      console.error("Speech error:", event);
+      setIsSpeaking(false);
+      setSpeakingIntensity(0);
+      setCurrentWord("");
+      setActiveMessage(null);
+    };
+
+    // Instead of using the onboundary event which may not work reliably in all browsers,
+    // manually split the text into words and display them with timing
+    const words = text.split(/\s+/);
+    let wordIndex = 0;
+    
+    // Set speaking to true immediately
+    setIsSpeaking(true);
+    
+    // Estimate speech duration based on word count and average speaking rate
+    const averageWordDuration = 300; // milliseconds per word (adjust as needed)
+    const estimatedDuration = words.length * averageWordDuration;
+    
+    // Calculate how long each word should be displayed
+    const wordDuration = estimatedDuration / words.length;
+    
+    console.log(`Estimated speech duration: ${estimatedDuration}ms, ${words.length} words, ${wordDuration}ms per word`);
+    
+    // Display words with timing
+    const wordInterval = setInterval(() => {
+      if (wordIndex < words.length) {
+        const word = words[wordIndex];
+        console.log(`Displaying word ${wordIndex}:`, word);
+        setCurrentWord(word);
+        
+        // Update avatar animation
+        setSpeakingIntensity(1);
+        setTimeout(() => setSpeakingIntensity(0.5), 50);
+        setTimeout(() => setSpeakingIntensity(0.2), 100);
+        setTimeout(() => setSpeakingIntensity(0), 150);
+        
+        wordIndex++;
+      } else {
+        // Keep displaying the last word for a moment before finishing
+        setTimeout(() => {
+          clearInterval(wordInterval);
+          // Only clear subtitle display after a short delay to ensure the last word is seen
+          setTimeout(() => {
+            setIsSpeaking(false);
+            setSpeakingIntensity(0);
+            setCurrentWord("");
+            setActiveMessage(null);
+          }, 500); // Wait 500ms after last word before hiding
+        }, 300);
+      }
+    }, wordDuration); // Dynamic timing based on text length
+    
+    // Clean up the interval if speech ends prematurely (e.g., if canceled)
+    utterance.onend = () => {
+      console.log("Speech ended, clearing interval");
+      clearInterval(wordInterval);
+      
+      // If we haven't shown all words yet, keep the popup visible for a moment
+      if (wordIndex < words.length) {
+        setTimeout(() => {
+          setIsSpeaking(false);
+          setSpeakingIntensity(0);
+          setCurrentWord("");
+          setActiveMessage(null);
+        }, 800); // Wait a bit longer if speech ended early
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+    
+    // Return a cleanup function to clear the interval if component unmounts
+    return () => {
+      clearInterval(wordInterval);
+    };
+  }, [messages]);
 
   React.useEffect(() => {
     async function initializeUser() {
@@ -771,37 +752,6 @@ export default function Practice() {
             {isMobile && <div className="h-24" />}
           </div>
         )}
-      </div>
-      
-      {/* Hidden DirectAudioPlayer for improved speech synthesis */}
-      <div className="hidden">
-        <DirectAudioPlayer
-          ref={audioPlayerRef}
-          text={activeTeacherMessage}
-          voice="nova"
-          autoPlay={false}
-          onStart={() => {
-            console.log("[Practice] DirectAudioPlayer started playing");
-            setIsSpeaking(true);
-          }}
-          onEnd={() => {
-            console.log("[Practice] DirectAudioPlayer finished playing");
-            setIsSpeaking(false);
-            setSpeakingIntensity(0);
-            setCurrentWord("");
-            
-            // Dispatch audio ended event
-            const audioEndEvent = new CustomEvent('audio-ended');
-            window.dispatchEvent(audioEndEvent);
-          }}
-          onWordChange={(word) => {
-            // Dispatch word change event
-            const wordEvent = new CustomEvent('word-changed', {
-              detail: { word }
-            });
-            window.dispatchEvent(wordEvent);
-          }}
-        />
       </div>
     </div>
   );

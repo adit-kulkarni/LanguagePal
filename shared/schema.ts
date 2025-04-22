@@ -1,36 +1,62 @@
-import { pgTable, serial, text, varchar, timestamp, jsonb } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { pgTable, text, serial, integer, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: varchar("username", { length: 255 }).notNull().unique(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  password: varchar("password", { length: 255 }).notNull(),
-  googleId: varchar("google_id", { length: 255 }),
-  settings: jsonb("settings").default({}).notNull(),
-  progress: jsonb("progress").default({}).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  googleId: text("google_id").unique(),
+  email: text("email").notNull().unique(),
+  emailVerified: boolean("email_verified").default(false),
+  verificationCode: text("verification_code"),
+  verificationCodeExpiry: timestamp("verification_code_expiry"),
+  settings: jsonb("settings").$type<{
+    grammarTenses: string[];
+    vocabularySets: string[];
+  }>().default({
+    grammarTenses: ["presente (present indicative)"],
+    vocabularySets: ["100 most common nouns"]
+  }),
+  progress: jsonb("progress").$type<{
+    grammar: number;
+    vocabulary: number;
+    speaking: number;
+    cefr: string;
+  }>().default({
+    grammar: 0,
+    vocabulary: 0,
+    speaking: 0,
+    cefr: "A1"
+  })
 });
 
 export const conversationSessions = pgTable("conversation_sessions", {
   id: serial("id").primaryKey(),
-  userId: serial("user_id").notNull().references(() => users.id),
-  title: varchar("title", { length: 255 }).notNull(),
-  context: text("context").default("").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
+  userId: integer("user_id").notNull(),
+  title: text("title").notNull(),
+  context: text("context").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastMessageAt: timestamp("last_message_at").defaultNow()
 });
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
-  sessionId: serial("session_id").notNull().references(() => conversationSessions.id),
-  type: varchar("type", { length: 50 }).notNull(), // "user" or "assistant"
+  sessionId: integer("session_id").notNull(),
+  type: text("type").notNull(), // "user" or "teacher"
   content: text("content").notNull(),
   translation: text("translation"),
-  corrections: jsonb("corrections").default({}),
-  audioUrl: varchar("audio_url", { length: 255 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  corrections: jsonb("corrections").$type<{
+    mistakes: Array<{
+      original: string;
+      correction: string;
+      explanation: string;
+      explanation_es: string;
+      type: "punctuation" | "grammar" | "vocabulary";
+      ignored?: boolean;
+    }>;
+  }>().default({ mistakes: [] })
 });
 
 export const insertUserSchema = createInsertSchema(users);
