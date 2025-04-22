@@ -367,12 +367,15 @@ export default function Practice() {
 
   const handleContextSelect = async (context: string) => {
     try {
+      console.log("Starting new conversation with context:", context);
       const response = await apiRequest("POST", "/api/conversations", {
         userId: 1,
         transcript: `START_CONTEXT: ${context}`
       });
 
+      console.log("Response received:", response.status);
       const data = await response.json();
+      console.log("Parsed data:", data);
 
       setCurrentSession({
         id: data.session.id,
@@ -392,6 +395,7 @@ export default function Practice() {
 
       queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
     } catch (error) {
+      console.error("Error creating conversation:", error);
       toast({
         variant: "destructive",
         title: "Error",

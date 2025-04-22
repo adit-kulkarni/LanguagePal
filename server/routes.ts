@@ -110,6 +110,7 @@ export function registerRoutes(app: Express): Server {
     // Conversations endpoint
     app.post("/api/conversations", async (req, res) => {
         try {
+            console.log("Received conversation request:", req.body);
             const userId = parseInt(req.body.userId);
             const transcript = req.body.transcript;
 
@@ -209,7 +210,9 @@ export function registerRoutes(app: Express): Server {
                 });
         } catch (error) {
             console.error('Conversation error:', error);
-            res.status(500).json({ message: "Failed to start conversation" });
+            console.error('Error stack:', error.stack);
+            console.error('Error details:', JSON.stringify(error, null, 2));
+            res.status(500).json({ message: "Failed to start conversation", error: error.message });
         }
     });
 
