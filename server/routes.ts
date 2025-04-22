@@ -208,7 +208,7 @@ export function registerRoutes(app: Express): Server {
                 .catch(error => {
                     console.error('Error getting corrections:', error);
                 });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Conversation error:', error);
             console.error('Error stack:', error.stack);
             console.error('Error details:', JSON.stringify(error, null, 2));
@@ -430,6 +430,7 @@ export function registerRoutes(app: Express): Server {
                             // Find the user message that prompted these corrections
                             userMessage: messages.find(
                                 m => m.type === "user" && 
+                                m.createdAt && message.createdAt &&
                                 new Date(m.createdAt) < new Date(message.createdAt)
                             )?.content
                         });
@@ -438,9 +439,10 @@ export function registerRoutes(app: Express): Server {
             }
 
             // Sort by most recent first
-            correctionsHistory.sort((a, b) => 
-                new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-            );
+            correctionsHistory.sort((a, b) => {
+                if (!a.timestamp || !b.timestamp) return 0;
+                return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+            });
 
             res.json(correctionsHistory);
         } catch (error) {

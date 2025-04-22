@@ -317,10 +317,16 @@ export default function Practice() {
         speak(data.teacherResponse.message, teacherMessage.id); // Pass in teacher message ID
         return;
       } catch (error) {
+        console.error("Error in handleSubmit:", error);
+        let errorMessage = "Failed to start conversation";
+        if (error instanceof Error) {
+          errorMessage = `Error: ${error.message}`;
+          console.error("Error details:", error.stack);
+        }
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to start conversation"
+          description: errorMessage
         });
         return;
       }
@@ -396,10 +402,18 @@ export default function Practice() {
       queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
     } catch (error) {
       console.error("Error creating conversation:", error);
+      
+      // Extract error message for better debugging
+      let errorMessage = "Failed to start conversation in this context";
+      if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+        console.error("Error details:", error.stack);
+      }
+      
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to start conversation in this context"
+        description: errorMessage
       });
     }
   };
