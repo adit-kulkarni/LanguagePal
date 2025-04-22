@@ -74,6 +74,8 @@ export async function getQuickTeacherResponse(
   transcript: string,
   settings: { grammarTenses: string[]; vocabularySets: string[] }
 ): Promise<Pick<TeacherResponse, 'message' | 'translation'>> {
+  console.log('Getting quick teacher response for:', transcript);
+  console.log('Using settings:', settings);
   // Check cache first
   const cacheKey = `quick:${transcript}`;
   const cachedResponse = responseCache.get(cacheKey);
@@ -130,8 +132,10 @@ Use vocabulary from: ${settings.vocabularySets.join(", ")}.`
       // Add to cache - maintain cache size
       if (responseCache.size >= MAX_CACHE_SIZE) {
         // Remove oldest entry (first key)
-        const firstKey = responseCache.keys().next().value;
-        responseCache.delete(firstKey);
+        const firstKeyIterator = responseCache.keys().next();
+        if (!firstKeyIterator.done && firstKeyIterator.value) {
+          responseCache.delete(firstKeyIterator.value);
+        }
       }
       
       // Store partial response in cache
@@ -372,14 +376,21 @@ Follow these STRICT rules:
     // Cache the full response
     if (responseCache.size >= MAX_CACHE_SIZE) {
       // Remove oldest entry (first key)
-      const firstKey = responseCache.keys().next().value;
-      responseCache.delete(firstKey);
+      const firstKeyIterator = responseCache.keys().next();
+      if (!firstKeyIterator.done && firstKeyIterator.value) {
+        responseCache.delete(firstKeyIterator.value);
+      }
     }
     responseCache.set(cacheKey, parsed);
 
     return parsed;
   } catch (error) {
     console.error('OpenAI API error:', error);
-    throw error;
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    // Create a more user-friendly error that doesn't expose API details
+    throw new Error("Failed to generate teacher response. Please try again.");
   }
 }

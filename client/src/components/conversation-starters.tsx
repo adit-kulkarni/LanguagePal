@@ -66,10 +66,16 @@ export function ConversationStarters({ onSelectContext }: ConversationStartersPr
 
   const handleConfirm = () => {
     if (selectedContext) {
-      onSelectContext(selectedContext);
-      setShowConfirmDialog(false);
-      setCustomContext("");
-      setShowCustomInput(false);
+      console.log("Confirming context selection:", selectedContext);
+      try {
+        onSelectContext(selectedContext);
+        console.log("Context selection callback completed");
+        setShowConfirmDialog(false);
+        setCustomContext("");
+        setShowCustomInput(false);
+      } catch (error) {
+        console.error("Error in context selection callback:", error);
+      }
     }
   };
 
