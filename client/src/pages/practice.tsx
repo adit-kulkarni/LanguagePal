@@ -374,20 +374,56 @@ export default function Practice() {
   const handleContextSelect = async (context: string) => {
     try {
       console.log("Starting new conversation with context:", context);
-      console.log("Preparing API request with data:", {
+      const requestData = {
         userId: 1,
         transcript: `START_CONTEXT: ${context}`
+      };
+      console.log("Preparing API request with data:", requestData);
+      
+      // Show a loading toast
+      const loadingToast = toast({
+        title: "Starting conversation...",
+        description: "Please wait while we set up your Spanish practice session",
       });
       
-      // Make sure we're using the correct API endpoint
-      const response = await apiRequest("POST", "/api/conversations", {
-        userId: 1,
-        transcript: `START_CONTEXT: ${context}`
+      // Make the API request with absolute URL to ensure correct routing
+      const fullUrl = `${window.location.origin}/api/conversations`;
+      console.log("Making request to:", fullUrl);
+      
+      const response = await fetch(fullUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestData),
+        credentials: "include"
       });
-
-      console.log("Response received:", response.status);
+      
+      console.log("Response status:", response.status);
+      
+      // Check for non-200 responses
+      if (!response.ok) {
+        let errorText = response.statusText;
+        try {
+          const errorData = await response.text();
+          console.error("Error response:", errorData);
+          errorText = errorData;
+        } catch (e) {
+          console.error("Could not parse error response");
+        }
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
+      }
+      
       const data = await response.json();
       console.log("Parsed data:", data);
+      
+      // Dismiss the loading toast
+      toast.dismiss(loadingToast);
+      
+      // Success toast
+      toast({
+        title: "Conversation started",
+        description: `You're now practicing Spanish in the "${context}" context`,
+        variant: "default"
+      });
 
       setCurrentSession({
         id: data.session.id,
@@ -403,9 +439,15 @@ export default function Practice() {
         translation: data.teacherResponse.translation
       }]);
       setMessageIdCounter(prev => prev + 1);
-      speak(teacherMessage, msgId); // Spanish conversations should still be spoken automatically
-
+      
+      // Update query cache
       queryClient.invalidateQueries({ queryKey: ["/api/users/1/sessions"] });
+      
+      // Wait a moment before speaking to ensure UI has updated
+      setTimeout(() => {
+        speak(teacherMessage, msgId);
+      }, 500);
+      
     } catch (error) {
       console.error("Error creating conversation:", error);
       
