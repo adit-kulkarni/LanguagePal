@@ -374,6 +374,12 @@ export default function Practice() {
   const handleContextSelect = async (context: string) => {
     try {
       console.log("Starting new conversation with context:", context);
+      console.log("Preparing API request with data:", {
+        userId: 1,
+        transcript: `START_CONTEXT: ${context}`
+      });
+      
+      // Make sure we're using the correct API endpoint
       const response = await apiRequest("POST", "/api/conversations", {
         userId: 1,
         transcript: `START_CONTEXT: ${context}`

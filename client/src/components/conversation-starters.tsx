@@ -67,14 +67,19 @@ export function ConversationStarters({ onSelectContext }: ConversationStartersPr
   const handleConfirm = () => {
     if (selectedContext) {
       console.log("Confirming context selection:", selectedContext);
+      
+      // Since onSelectContext is asynchronous, we should handle it properly
       try {
-        onSelectContext(selectedContext);
-        console.log("Context selection callback completed");
+        // First close the dialog and reset input state to improve UI responsiveness
         setShowConfirmDialog(false);
         setCustomContext("");
         setShowCustomInput(false);
+        
+        // Then call the context selection callback - any errors will be handled in the callback
+        onSelectContext(selectedContext);
+        console.log("Context selection initiated");
       } catch (error) {
-        console.error("Error in context selection callback:", error);
+        console.error("Error initiating context selection:", error);
       }
     }
   };
