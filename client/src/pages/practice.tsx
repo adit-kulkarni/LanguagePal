@@ -381,9 +381,10 @@ export default function Practice() {
       console.log("Preparing API request with data:", requestData);
       
       // Show a loading toast
-      const loadingToast = toast({
+      toast({
         title: "Starting conversation...",
         description: "Please wait while we set up your Spanish practice session",
+        variant: "default"
       });
       
       // Make the API request with absolute URL to ensure correct routing
@@ -414,9 +415,6 @@ export default function Practice() {
       
       const data = await response.json();
       console.log("Parsed data:", data);
-      
-      // Dismiss the loading toast
-      toast.dismiss(loadingToast);
       
       // Success toast
       toast({
